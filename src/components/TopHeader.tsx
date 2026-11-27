@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { Search, Bell, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 
-export default function TopHeader() {
+/** Nom et rôle de l'utilisateur, lus dans le profil par le layout. */
+export default function TopHeader({ name, role }: { name: string; role: string }) {
   const [query, setQuery] = useState('')
 
   return (
@@ -55,11 +56,11 @@ export default function TopHeader() {
         <div className="shrink-0 flex items-center justify-end pr-2">
            <div className="flex items-center gap-3 cursor-pointer px-1">
               <div className="w-8 h-8 rounded-full bg-[#E0F7FA] overflow-hidden flex items-center justify-center shrink-0">
-                 <img src="https://api.dicebear.com/9.x/rings/svg?seed=AdminUser&primaryColor=06b6d4,f97316" alt="Admin Graphic Avatar" className="w-full h-full object-cover scale-110" />
+                 <img src={`https://api.dicebear.com/9.x/rings/svg?seed=${encodeURIComponent(name.replace(/\s+/g, ''))}&primaryColor=06b6d4,f97316`} alt="Admin Graphic Avatar" className="w-full h-full object-cover scale-110" />
               </div>
               <div className="hidden md:flex flex-col justify-center">
-                 <span className="text-[13px] font-bold text-[#1A1C1E] leading-none mb-1">Admin User</span>
-                 <span className="text-[11px] font-medium text-[#A0A4A8] leading-none">Manager</span>
+                 <span className="text-[13px] font-bold text-[#1A1C1E] leading-none mb-1">{name}</span>
+                 <span className="text-[11px] font-medium text-[#A0A4A8] leading-none">{role}</span>
               </div>
               <ChevronDown strokeWidth={2} className="w-3.5 h-3.5 text-[#A0A4A8] ml-1 shrink-0" />
            </div>

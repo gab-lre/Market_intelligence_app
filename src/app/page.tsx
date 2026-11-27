@@ -5,8 +5,13 @@ import { DoubleEvolutionChart } from '@/components/Charts/DoubleEvolutionChart';
 import { OpportunitiesSection } from '@/components/Dashboard/OpportunitiesSection';
 import { HelpCircle } from 'lucide-react';
 
+/** Tendance sur 7 jours au format « +1,2% ». */
+function formatTrend(value: number) {
+  return `${value >= 0 ? '+' : ''}${value.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}%`;
+}
+
 export default async function DashboardPage() {
-  const { kpis, departments, evolution, opportunities, recentReports, recentRuns } = await getDashboardData();
+  const { kpis, trends, departments, evolution, opportunities, recentReports, recentRuns } = await getDashboardData();
   const safeSignalsCount = kpis.signals;
 
   return (
@@ -21,7 +26,7 @@ export default async function DashboardPage() {
             <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between min-h-[105px]">
                <div className="flex justify-between items-start mb-2">
                   <span className="text-3xl font-black text-[#1A1C1E] leading-none">{kpis.opportunities}</span>
-                  <span className="text-[10px] font-bold text-[#257b57] bg-[#E6F4EA] px-2 py-0.5 rounded-full">+1,2%</span>
+                  {trends.opportunities !== null && <span className="text-[10px] font-bold text-[#257b57] bg-[#E6F4EA] px-2 py-0.5 rounded-full">{formatTrend(trends.opportunities)}</span>}
                </div>
                <div>
                   <h4 className="text-sm font-bold text-[#1A1C1E] leading-tight mb-0.5">Total Opportunités</h4>
@@ -43,8 +48,8 @@ export default async function DashboardPage() {
             {/* KPI 3 (newly matched format) */}
             <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between min-h-[105px]">
                <div className="flex justify-between items-start mb-2">
-                  <span className="text-3xl font-black text-[#1A1C1E] leading-none">12</span>
-                  <span className="text-[10px] font-bold text-[#257b57] bg-[#E6F4EA] px-2 py-0.5 rounded-full">+3,8%</span>
+                  <span className="text-3xl font-black text-[#1A1C1E] leading-none">{kpis.activeSources}</span>
+                  {trends.activeSources !== null && <span className="text-[10px] font-bold text-[#257b57] bg-[#E6F4EA] px-2 py-0.5 rounded-full">{formatTrend(trends.activeSources)}</span>}
                </div>
                <div>
                   <h4 className="text-sm font-bold text-[#1A1C1E] leading-tight mb-0.5">Sources Actives</h4>
@@ -67,7 +72,7 @@ export default async function DashboardPage() {
             <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between min-h-[105px]">
                <div className="flex justify-between items-start mb-2">
                   <span className="text-3xl font-black text-[#1A1C1E] leading-none">{kpis.averageScore}</span>
-                  <span className="text-[10px] font-bold text-[#257b57] bg-[#E6F4EA] px-2 py-0.5 rounded-full">+1,2%</span>
+                  {trends.averageScore !== null && <span className="text-[10px] font-bold text-[#257b57] bg-[#E6F4EA] px-2 py-0.5 rounded-full">{formatTrend(trends.averageScore)}</span>}
                </div>
                <div>
                   <h4 className="text-sm font-bold text-[#1A1C1E] leading-tight mb-0.5">Score Global</h4>

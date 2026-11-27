@@ -34,6 +34,12 @@ function toReportSummary(r: Report): ReportSummary {
   return { id: r.id, type: r.type, title: r.title, created_at: r.created_at }
 }
 
+/** Variation en % entre deux valeurs ; null si la valeur de départ est nulle. */
+function percentChange(before: number, now: number): number | null {
+  if (before <= 0) return null
+  return ((now - before) / before) * 100
+}
+
 function dayLabel(d: Date) {
   return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`
 }
@@ -96,12 +102,37 @@ export async function getDashboardData(): Promise<DashboardData> {
     evolution = past
   }
 
+  // Sources actives : sources ayant collecté au moins une fois sur la période
+  const weekAgo = new Date()
+  weekAgo.setDate(weekAgo.getDate() - 7)
+  const twoWeeksAgo = new Date()
+  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+  const sourcesCollectedBetween = (from: Date, to: Date) => new Set(
+    db.collectionRuns
+      .filter(r => new Date(r.started_at) >= from && new Date(r.started_at) < to)
+      .flatMap(r => Object.entries(r.results_summary ?? {}).filter(([, v]) => v.collected > 0).map(([k]) => k))
+  ).size
+  const activeSources = sourcesCollectedBetween(weekAgo, new Date())
+  const activeSourcesLastWeek = sourcesCollectedBetween(twoWeeksAgo, weekAgo)
+
+  // État d'il y a 7 jours, pour calculer les tendances
+  const oppsWeekAgo = opps.filter(o => new Date(o.created_at) < weekAgo)
+  const avgScoreWeekAgo = oppsWeekAgo.length > 0
+    ? oppsWeekAgo.reduce((acc, o) => acc + (o.score_global || 0), 0) / oppsWeekAgo.length
+    : 0
+
   return {
     kpis: {
       opportunities: opportunitiesCount,
       newOpps: newOppsCount,
+      activeSources,
       signals: db.signals.length,
       averageScore: avgScore,
+    },
+    trends: {
+      opportunities: percentChange(oppsWeekAgo.length, opportunitiesCount),
+      activeSources: percentChange(activeSourcesLastWeek, activeSources),
+      averageScore: percentChange(avgScoreWeekAgo, avgScore),
     },
     departments,
     evolution,

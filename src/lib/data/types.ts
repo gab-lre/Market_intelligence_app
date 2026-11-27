@@ -160,8 +160,16 @@ export interface DashboardData {
   kpis: {
     opportunities: number
     newOpps: number
+    /** Sources ayant collecté au moins une fois sur les 7 derniers jours. */
+    activeSources: number
     signals: number
     averageScore: number
+  }
+  /** Évolution en % sur 7 jours ; null quand il n'y a rien à comparer. */
+  trends: {
+    opportunities: number | null
+    activeSources: number | null
+    averageScore: number | null
   }
   departments: { department: string; count: number }[]
   evolution: { date: string; score: number; volume: number }[]
@@ -173,6 +181,9 @@ export interface DashboardData {
 // ─── Profil ──────────────────────────────────────────────────────────────────
 
 export interface Profile {
+  /** Nom et rôle affichés dans le header. */
+  display_name?: string
+  role?: string
   entrepreneurial_stage?: string
   main_motivation?: string[]
   time_horizon?: string
