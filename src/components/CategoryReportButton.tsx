@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, ArrowRight } from 'lucide-react'
+import { Loader2, ArrowRight, Sparkles } from 'lucide-react'
+import { generateReport } from '@/lib/actions'
 
 const STEPS = [
   'Chargement des signaux de la catégorie...',
@@ -14,10 +15,9 @@ const STEPS = [
 
 interface CategoryReportButtonProps {
   category: 'community' | 'job' | 'startup'
-  label: string
 }
 
-export default function CategoryReportButton({ category, label }: CategoryReportButtonProps) {
+export default function CategoryReportButton({ category }: CategoryReportButtonProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,14 +36,7 @@ export default function CategoryReportButton({ category, label }: CategoryReport
     setError(null)
     setStepIndex(0)
     try {
-      const userId = localStorage.getItem('mi_user_id') ?? undefined
-      const res = await fetch('/api/reports/category', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, userId }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue')
+      const data = await generateReport('category', { category })
       router.push(`/reports/category/${data.reportId}`)
     } catch (err) {
       setError((err as Error).message)
@@ -56,21 +49,21 @@ export default function CategoryReportButton({ category, label }: CategoryReport
       <button
         onClick={handleClick}
         disabled={loading}
-        className="flex items-center justify-center gap-2 w-full px-5 py-3 bg-[#2b3652] text-white font-bold text-xs uppercase tracking-widest hover:bg-[#1e2840] transition disabled:opacity-60"
+        className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-[#1A1C1E] text-white text-[11px] font-bold rounded-xl hover:bg-black transition-all disabled:opacity-60 shadow-sm group"
       >
         {loading ? (
-          <><Loader2 className="w-4 h-4 animate-spin" /> Génération en cours...</>
+          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Génération...</>
         ) : (
-          <>Générer le rapport <ArrowRight className="w-4 h-4" /></>
+          <><Sparkles className="w-3.5 h-3.5 text-[#257b57]" /> Générer le rapport <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" /></>
         )}
       </button>
       {loading && (
-        <p className="text-[10px] font-medium text-slate-500 animate-pulse text-center">
+        <p className="text-[10px] font-medium text-[#707478] animate-pulse text-center">
           {STEPS[stepIndex]}
         </p>
       )}
       {error && (
-        <p className="text-xs text-red-500 font-medium text-center">{error}</p>
+        <p className="text-[10px] text-rose-500 font-medium text-center">{error}</p>
       )}
     </div>
   )

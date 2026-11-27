@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, ArrowRight } from 'lucide-react'
+import { Loader2, ArrowRight, Sparkles } from 'lucide-react'
+import { generateReport } from '@/lib/actions'
 
 const GENERATION_STEPS = [
   'Analyse de toutes les sources...',
@@ -32,14 +33,7 @@ export default function FullReportButton() {
     setError(null)
     setStepIndex(0)
     try {
-      const userId = localStorage.getItem('mi_user_id') ?? undefined
-      const res = await fetch('/api/reports/full', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue')
+      const data = await generateReport('full')
       router.push(`/reports/full/${data.reportId}`)
     } catch (err) {
       setError((err as Error).message)
@@ -52,16 +46,16 @@ export default function FullReportButton() {
       <button
         onClick={handleClick}
         disabled={loading}
-        className="flex items-center gap-3 bg-white text-[#2b3652] px-8 py-4 font-black uppercase tracking-widest text-xs hover:bg-[#00b4d8] hover:text-white transition-all shadow-md disabled:opacity-60"
+        className="flex items-center gap-2 bg-white text-[#1A1C1E] px-6 py-3 rounded-xl font-bold text-[12px] hover:bg-[#257b57] hover:text-white transition-all shadow-md disabled:opacity-60 group"
       >
         {loading ? (
           <><Loader2 className="w-4 h-4 animate-spin" /> En cours...</>
         ) : (
-          <>Générer le rapport <ArrowRight className="w-4 h-4" /></>
+          <><Sparkles className="w-4 h-4 text-[#257b57] group-hover:text-white transition-colors" /> Générer le rapport <ArrowRight className="w-4 h-4" /></>
         )}
       </button>
       {loading && (
-        <p className="text-white/50 text-xs font-medium mt-3 animate-pulse">
+        <p className="text-white/60 text-[11px] font-medium mt-3 animate-pulse">
           {GENERATION_STEPS[stepIndex]}
         </p>
       )}

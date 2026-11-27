@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Database, ChevronRight } from 'lucide-react'
+import { startCollection } from '@/lib/actions'
 
 const SCRAPING_STEPS = [
   'Initialisation des collecteurs...',
@@ -40,10 +41,7 @@ export default function LaunchRunButton({ label = 'Démarrer une nouvelle analys
     setMessage(null)
     setStepIndex(0)
     try {
-      const res = await fetch('/api/scraping/run', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue')
-      const collected = data.collection?.signalsCollected ?? 0
+      const { signalsCollected: collected } = await startCollection()
       setMessage(`Collecte terminée — ${collected} signaux collectés`)
       setState('success')
     } catch (err) {
@@ -64,17 +62,26 @@ export default function LaunchRunButton({ label = 'Démarrer une nouvelle analys
       <button
         onClick={handleClick}
         disabled={isLoading}
-        className={`flex items-center gap-2 px-5 py-3 font-bold text-[10px] uppercase tracking-widest rounded-none transition shadow-md disabled:cursor-not-allowed
-          ${state === 'success' ? 'bg-emerald-600 text-white border border-emerald-600' :
-            state === 'error' ? 'bg-rose-600 text-white border border-rose-600' :
-            'bg-[#2b3652] text-white hover:bg-[#1f283d]'}`}
+        className={`flex items-center justify-between p-2 pr-6 bg-[#1A1C1E] rounded-[24px] w-full text-left transition-all hover:bg-black group disabled:opacity-50 disabled:cursor-not-allowed
+          ${state === 'success' ? 'bg-emerald-600' :
+            state === 'error' ? 'bg-rose-600' : ''}`}
       >
-        {isLoading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          icon ?? null
-        )}
-        {isLoading ? 'Analyse en cours...' : label}
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+            {isLoading ? <Loader2 className="w-5 h-5 text-white animate-spin" /> : (icon ?? <Database className="w-5 h-5 text-white" />)}
+          </div>
+          <div>
+            <p className="text-white font-bold text-[14px] leading-tight mb-0.5">
+              {isLoading ? 'Collecte en cours...' : (state === 'success' ? 'Terminé' : state === 'error' ? 'Erreur' : label)}
+            </p>
+            <p className="text-white/60 text-[11px] font-medium leading-tight">
+              Scraper de nouveaux signaux
+            </p>
+          </div>
+        </div>
+        <div className="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center shrink-0 group-hover:bg-white/10 transition-colors ml-4">
+          <ChevronRight className="w-4 h-4 text-white opacity-80 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+        </div>
       </button>
       {isLoading && (
         <p className="mt-2 text-[10px] font-medium text-slate-500 animate-pulse">

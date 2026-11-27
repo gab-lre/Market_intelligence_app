@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Market Intelligence
 
-## Getting Started
+Market Intelligence repère des opportunités de produits B2B (SaaS, agents IA, micro-produits) à partir de signaux publics : offres d'emploi et discussions en ligne. L'application les classe par département et par marché (France, Québec), leur donne un score sur 100 et produit des rapports d'analyse.
 
-First, run the development server:
+Ce dépôt ne contient que le **frontend**. Toutes les données affichées sont **factices** : elles viennent d'une couche d'accès aux données prête à être branchée sur un vrai backend.
+
+## Pages
+
+| Page | Route | Contenu |
+|---|---|---|
+| Dashboard | `/` | KPI, graphiques, liste et aperçu des opportunités, actions rapides |
+| Opportunités | `/opportunities`, `/opportunities/[id]` | Tableau filtrable et fiche détaillée |
+| Rapports | `/reports` et ses vues | Rapports par catégorie, croisés, complets et par collecte |
+| Sources | `/sources` | Sources de données et historique des collectes |
+| Mon profil | `/settings` | Préférences qui personnalisent les analyses |
+
+## Lancer le projet
+
+Prérequis : Node.js 20 ou plus récent.
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+L'application est alors disponible sur http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Autres commandes :
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build   # build de production
+npm run lint    # vérification du code
+```
 
-## Learn More
+## Stack
 
-To learn more about Next.js, take a look at the following resources:
+Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, Recharts et lucide-react.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Organisation du code
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+├── app/            pages (une route = un dossier)
+├── components/     composants d'interface
+└── lib/
+    ├── data/       accès aux données : types, données factices, fonctions de lecture
+    └── actions.ts  actions des boutons (collecte, rapports, profil), factices pour l'instant
+```
 
-## Deploy on Vercel
+Les pages et les composants lisent leurs données **uniquement** via `src/lib/data` et `src/lib/actions.ts`. Pour brancher un vrai backend, il suffit de réécrire ces deux points d'entrée en gardant les mêmes signatures.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Crédits
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Le code a été écrit avec l'aide d'agents IA ; j'en ai conçu la logique.
