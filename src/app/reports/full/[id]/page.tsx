@@ -1,6 +1,6 @@
 import {
   ArrowLeft, BrainCircuit, Calendar, FileText,
-  BarChart3, Users, Sword, Star, Lightbulb, User
+  BarChart3, Users, Sword, Star, Lightbulb,
 } from 'lucide-react'
 import Link from 'next/link'
 import { getReport } from '@/lib/data'

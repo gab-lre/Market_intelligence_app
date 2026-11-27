@@ -9,7 +9,6 @@ import {
   BarChart2,
   Database,
   UserCircle,
-  Settings,
   HelpCircle,
   LogOut,
   Sprout,

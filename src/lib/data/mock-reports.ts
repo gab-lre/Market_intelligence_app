@@ -79,7 +79,7 @@ _Prochaine étape : interroger 5 artisans sur leur processus actuel de relance._
     sections: [
       {
         order: 1, title: 'Contexte',
-        content: `Ce rapport analyse **136 offres d'emploi** issues de France Travail et d'Indeed (via Apify). Chaque offre décrit des tâches que l'entreprise est prête à payer pour faire réaliser.`,
+        content: `Ce rapport analyse **136 offres d'emploi** issues de France Travail et d'Indeed. Chaque offre décrit des tâches que l'entreprise est prête à payer pour faire réaliser.`,
       },
       {
         order: 2, title: 'Tendances observées',

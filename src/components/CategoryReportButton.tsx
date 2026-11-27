@@ -15,10 +15,9 @@ const STEPS = [
 
 interface CategoryReportButtonProps {
   category: 'community' | 'job' | 'startup'
-  label: string
 }
 
-export default function CategoryReportButton({ category, label }: CategoryReportButtonProps) {
+export default function CategoryReportButton({ category }: CategoryReportButtonProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)

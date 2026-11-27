@@ -12,7 +12,6 @@ function formatTrend(value: number) {
 
 export default async function DashboardPage() {
   const { kpis, trends, departments, evolution, opportunities, recentReports, recentRuns } = await getDashboardData();
-  const safeSignalsCount = kpis.signals;
 
   return (
     <div className="flex flex-1 h-full gap-2 shrink-0 overflow-hidden">
@@ -60,7 +59,7 @@ export default async function DashboardPage() {
             {/* KPI 4 */}
             <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between min-h-[105px]">
                <div className="flex justify-between items-start mb-2">
-                  <span className="text-3xl font-black text-[#1A1C1E] leading-none text-nowrap">{safeSignalsCount >= 1000 ? (safeSignalsCount/1000).toFixed(1)+'k' : safeSignalsCount}</span>
+                  <span className="text-3xl font-black text-[#1A1C1E] leading-none text-nowrap">{kpis.signals >= 1000 ? (kpis.signals/1000).toFixed(1)+'k' : kpis.signals}</span>
                </div>
                <div>
                   <h4 className="text-sm font-bold text-[#1A1C1E] leading-tight mb-0.5">Données Brutes</h4>
@@ -114,7 +113,6 @@ export default async function DashboardPage() {
 
       {/* RIGHT SIDEBAR: Aperçu & Timeline */}
       <DashboardRightSidebar 
-        stats={kpis}
         recentReports={recentReports}
         recentScrapes={recentRuns}
       />

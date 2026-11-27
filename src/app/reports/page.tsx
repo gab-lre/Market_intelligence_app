@@ -20,7 +20,6 @@ const CATEGORY_CONFIG = [
     key: 'job' as const,
     label: 'Emplois & Missions Freelance',
     desc: 'Offres d\'emploi, missions Upwork, Malt, France Travail, LinkedIn, Indeed',
-    emoji: '💼',
     icon: Briefcase,
     color: 'bg-blue-50 text-blue-600',
   },
@@ -28,7 +27,6 @@ const CATEGORY_CONFIG = [
     key: 'community' as const,
     label: 'Communautés & Insights',
     desc: 'Dev.to, Reddit, Hacker News, avis G2 sur logiciels B2B',
-    emoji: '👥',
     icon: Users,
     color: 'bg-purple-50 text-purple-600',
   },
@@ -36,7 +34,6 @@ const CATEGORY_CONFIG = [
     key: 'startup' as const,
     label: 'Écosystème Startups',
     desc: 'Wellfound, Product Hunt, écosystème startup',
-    emoji: '🚀',
     icon: Rocket,
     color: 'bg-[#E6F4EA] text-[#257b57]',
   },
@@ -95,7 +92,7 @@ export default async function ReportsHubPage() {
                       </div>
                     </div>
                     <div className="shrink-0 w-44">
-                      <CategoryReportButton category={cat.key} label={cat.label} />
+                      <CategoryReportButton category={cat.key} />
                     </div>
                   </div>
                 ))}

@@ -2,9 +2,9 @@ import { notFound } from 'next/navigation'
 import { getOpportunity } from '@/lib/data'
 import BackButton from '@/components/BackButton'
 import type {
-  Department, TargetMarket, OpportunityType,
-  TimeToMvp, Complexity, MarketSizeHint, RevenueModel,
+  OpportunityType, TimeToMvp, Complexity, MarketSizeHint, RevenueModel,
 } from '@/lib/data'
+import { DEPARTMENTS, MARKET_LABELS } from '@/components/opportunities/display'
 
 // ─── Helpers de formatage ───────────────────────────────────────────────────
 
@@ -12,13 +12,9 @@ function fmt(map: Record<string, string>, val: string | null): string {
   return val ? (map[val] ?? val) : '—'
 }
 
-const DEPT_LABELS: Record<Department, string> = {
-  commercial: 'Commercial', marketing: 'Marketing', operations: 'Opérations',
-  finance: 'Finance', rh: 'RH', technique: 'Technique', support: 'Support', autre: 'Autre',
-}
-const MARKET_LABELS: Record<TargetMarket, string> = {
-  fr: 'France', qc: 'Québec', fr_qc: 'FR & QC', international: 'International',
-}
+const DEPT_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(DEPARTMENTS).map(([key, d]) => [key, d.label])
+)
 const TYPE_LABELS: Record<OpportunityType, string> = {
   saas: 'SaaS', ai_agent_service: 'Agent IA (service)',
   ai_agent_product: 'Agent IA (produit)', template: 'Template', micro_product: 'Micro-produit',

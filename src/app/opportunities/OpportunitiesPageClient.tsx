@@ -8,6 +8,7 @@ import {
   TrendingUp, Lightbulb, Star, ArrowUpRight,
 } from 'lucide-react';
 import type { OpportunitySummary } from '@/lib/data';
+import { ALL_DEPTS, DEPARTMENTS, MARKET_LABELS, SCORE_PRESETS, getScoreColor } from '@/components/opportunities/display';
 
 // ──────────────────────────────────────────────
 // Types & Config
@@ -16,36 +17,6 @@ import type { OpportunitySummary } from '@/lib/data';
 interface KPIs { total: number; avgScore: number; highScore: number; }
 
 type SortKey = 'score' | 'volume' | 'date';
-
-const DEPT_CONFIG: Record<string, { label: string; bg: string; text: string; border: string }> = {
-  technique:  { label: 'Technique',  bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-200' },
-  commercial: { label: 'Commercial', bg: 'bg-purple-50',  text: 'text-purple-700',  border: 'border-purple-200' },
-  marketing:  { label: 'Marketing',  bg: 'bg-pink-50',    text: 'text-pink-700',    border: 'border-pink-200' },
-  operations: { label: 'Opérations', bg: 'bg-orange-50',  text: 'text-orange-700',  border: 'border-orange-200' },
-  finance:    { label: 'Finance',    bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
-  rh:         { label: 'RH',         bg: 'bg-indigo-50',  text: 'text-indigo-700',  border: 'border-indigo-200' },
-  support:    { label: 'Support',    bg: 'bg-slate-100',  text: 'text-slate-600',   border: 'border-slate-200' },
-  autre:      { label: 'Autre',      bg: 'bg-gray-100',   text: 'text-gray-500',    border: 'border-gray-200' },
-};
-
-const MARKET_LABELS: Record<string, string> = {
-  fr: 'France', qc: 'Québec', fr_qc: 'FR & QC', international: 'International',
-};
-
-const ALL_DEPTS = ['technique', 'commercial', 'marketing', 'operations', 'finance', 'rh', 'support', 'autre'];
-const SCORE_PRESETS = [
-  { label: 'Tous', min: 0 },
-  { label: '50+',  min: 50 },
-  { label: '60+',  min: 60 },
-  { label: '70+',  min: 70 },
-  { label: '80+',  min: 80 },
-];
-
-function getScoreColor(score: number) {
-  if (score >= 60) return { bg: 'bg-[#E6F4EA]', text: 'text-[#257b57]', ring: 'ring-[#257b57]/20' };
-  if (score >= 40) return { bg: 'bg-[#FFF8E1]', text: 'text-[#F57F17]',  ring: 'ring-amber-200' };
-  return                  { bg: 'bg-[#FFEBEE]', text: 'text-[#C62828]',  ring: 'ring-rose-200' };
-}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -178,7 +149,7 @@ export default function OpportunitiesPageClient({
                 <p className="text-[10px] font-black uppercase tracking-widest text-[#A0A4A8] mb-2.5">Département</p>
                 <div className="flex flex-wrap gap-1.5">
                   {ALL_DEPTS.map(d => {
-                    const cfg = DEPT_CONFIG[d];
+                    const cfg = DEPARTMENTS[d];
                     const active = filterDepts.includes(d);
                     return (
                       <button
@@ -248,7 +219,7 @@ export default function OpportunitiesPageClient({
               </thead>
               <tbody>
                 {filtered.map(opp => {
-                  const dept = DEPT_CONFIG[opp.department ?? 'autre'] ?? DEPT_CONFIG.autre;
+                  const dept = DEPARTMENTS[opp.department ?? 'autre'] ?? DEPARTMENTS.autre;
                   const score = getScoreColor(opp.score_global ?? 0);
                   return (
                     <tr key={opp.id} onClick={() => router.push(`/opportunities/${opp.id}`)} className="border-b border-[#F4F6F8] hover:bg-[#FAFBFC] transition-colors group cursor-pointer">

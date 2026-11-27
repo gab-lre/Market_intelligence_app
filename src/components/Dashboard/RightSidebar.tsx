@@ -2,18 +2,17 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import QuickReportModal from '@/components/QuickReportModal';
-import QuickScrapeModal from '@/components/QuickScrapeModal';
+import QuickReportModal from '@/components/modals/QuickReportModal';
+import QuickScrapeModal from '@/components/modals/QuickScrapeModal';
 import { ChevronDown, Database, FileText, Activity, Clock, FileOutput, Server, ChevronRight, CheckCircle2 } from 'lucide-react';
-import type { CollectionRun, DashboardData, ReportSummary } from '@/lib/data';
+import type { CollectionRun, ReportSummary } from '@/lib/data';
 
 interface Props {
-  stats: DashboardData['kpis'];
   recentReports: ReportSummary[];
   recentScrapes: CollectionRun[];
 }
 
-export default function DashboardRightSidebar({ stats, recentReports, recentScrapes }: Props) {
+export default function DashboardRightSidebar({ recentReports, recentScrapes }: Props) {
   const router = useRouter();
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isScrapeModalOpen, setIsScrapeModalOpen] = useState(false);
@@ -121,9 +120,6 @@ export default function DashboardRightSidebar({ stats, recentReports, recentScra
                          onClick={() => router.push(`/reports/${report.type}/${report.id}`)}
                          className={`relative z-10 w-full bg-white border border-slate-100 rounded-[20px] p-3.5 flex items-start gap-3 hover:border-slate-300 hover:shadow-sm cursor-pointer transition-all ${idx === 0 ? 'border-l-4 border-l-[#257b57]' : ''}`}
                        >
-                         {/* Circle indicator */}
-                         <div className="absolute top-[18px] -left-[23px] w-2.5 h-2.5 rounded-full bg-slate-100 border-2 border-white hidden"></div>
-                         
                          <div className="w-10 h-10 rounded-full bg-[#F4F6F8] flex items-center justify-center shrink-0">
                            <FileOutput strokeWidth={2.5} className="w-4 h-4 text-[#1A1C1E] relative -mr-0.5" />
                          </div>
@@ -158,7 +154,7 @@ export default function DashboardRightSidebar({ stats, recentReports, recentScra
                  <div className="flex flex-col gap-2 relative">
                     <div className="absolute left-[20px] top-4 bottom-4 w-[2px] bg-slate-100 z-0"></div>
 
-                    {recentScrapes.map((scrape, idx) => (
+                    {recentScrapes.map((scrape) => (
                        <div 
                          key={scrape.id} 
                          onClick={() => router.push(`/reports/source/${scrape.id}`)}

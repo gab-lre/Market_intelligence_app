@@ -41,7 +41,7 @@ function at(days: number, hour: number, minute = 0): string {
 }
 
 // ─── Sources et collectes ────────────────────────────────────────────────────
-// Vides pour l'instant : elles seront ajoutées avec la base Supabase et les scripts de collecte.
+// Vides pour l'instant : elles seront ajoutées avec la vraie base de données et les scripts de collecte.
 
 export const sourceCategories: SourceCategory[] = []
 

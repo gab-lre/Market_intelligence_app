@@ -68,7 +68,7 @@ export function DepartmentDistributionChart({ data }: DepartmentDistributionChar
 
       {/* List (Right side) */}
       <div className="flex-[1.2] flex flex-col justify-center space-y-3 pl-2 overflow-y-auto plugin-noscrollbar">
-        {data.map((item, i) => {
+        {data.map((item) => {
           const percent = total > 0 ? Math.round((item.count / total) * 100) : 0;
           return (
             <div key={item.department} className="flex items-center justify-between">
