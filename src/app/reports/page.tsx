@@ -1,10 +1,9 @@
 import { BarChart2, ArrowUpRight, Briefcase, Users, Rocket, Globe, Layers, FileText } from 'lucide-react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { getCollectionRuns, getReports } from '@/lib/data'
 import CategoryReportButton from '@/components/CategoryReportButton'
 import CrossReportBuilder from '@/components/CrossReportBuilder'
 import FullReportButton from '@/components/FullReportButton'
-import type { GeneratedReport } from '@/types/database'
 
 // ──────────────────────────────────────────────
 // Config
@@ -52,19 +51,8 @@ function formatDate(iso: string) {
 // ──────────────────────────────────────────────
 
 export default async function ReportsHubPage() {
-  const { data: history } = await supabase
-    .from('collections_history')
-    .select('id, started_at, status, results_summary, signals_collected')
-    .eq('status', 'completed')
-    .order('started_at', { ascending: false })
-    .limit(5)
-
-  const { data: recentReports } = await supabase
-    .from('generated_reports')
-    .select('id, type, title, created_at, sources_used, status')
-    .eq('status', 'completed')
-    .order('created_at', { ascending: false })
-    .limit(10)
+  const history = await getCollectionRuns({ status: 'completed', limit: 5 })
+  const recentReports = await getReports(10)
 
   return (
     <div className="flex flex-col gap-4 h-full min-h-0 pb-4 pl-4">
@@ -177,7 +165,7 @@ export default async function ReportsHubPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {(recentReports as GeneratedReport[]).map(r => {
+                  {recentReports.map(r => {
                     const href = r.type === 'category'
                       ? `/reports/category/${r.id}`
                       : r.type === 'cross'
@@ -226,7 +214,7 @@ export default async function ReportsHubPage() {
               ) : (
                 <div className="space-y-2">
                   {history.map(run => {
-                    const summaries = run.results_summary as Record<string, unknown>
+                    const summaries = run.results_summary
                     const sourcesNames = summaries
                       ? Object.keys(summaries).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')
                       : 'Multi-source'

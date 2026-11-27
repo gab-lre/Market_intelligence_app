@@ -2,32 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { Check, Loader2, Sparkles, RefreshCw, Save, UserCircle, ChevronRight } from 'lucide-react'
+import { getProfile, type Profile } from '@/lib/data'
+import { regenerateProfileSummary, saveProfile } from '@/lib/actions'
 
 // ──────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────
 
-type ProfileDraft = {
-  entrepreneurial_stage?: string
-  main_motivation?: string[]
-  time_horizon?: string
-  prior_experience?: boolean
-  tech_level?: string
-  secondary_skills?: string[]
-  spoken_languages?: string[]
-  weekly_availability?: string
-  budget_range?: string
-  preferred_business_models?: string[]
-  excluded_sectors?: string[]
-  preferred_sectors?: string[]
-  preferred_solution_types?: string[]
-  preferred_target?: string
-  product_complexity?: string
-  priority_market?: string
-  existing_sector_knowledge?: string
-  report_detail_level?: string
-  report_tone?: string
-}
+type ProfileDraft = Omit<Profile, 'profile_summary'>
 
 // ──────────────────────────────────────────────
 // Reusable sub-components
@@ -110,7 +92,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 // ──────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const [userId, setUserId] = useState<string | null>(null)
+  const [hasProfile, setHasProfile] = useState(false)
   const [draft, setDraft] = useState<ProfileDraft>({})
   const [profileSummary, setProfileSummary] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -120,35 +102,12 @@ export default function SettingsPage() {
 
   useEffect(() => {
     async function load() {
-      const id = localStorage.getItem('mi_user_id')
-      if (!id) { setInitialized(true); return }
-      setUserId(id)
-      const res = await fetch(`/api/user/profile?userId=${id}`)
-      const data = await res.json()
-      if (data.profile) {
-        const p = data.profile
-        setProfileSummary(p.profile_summary ?? null)
-        setDraft({
-          entrepreneurial_stage: p.entrepreneurial_stage,
-          main_motivation: p.main_motivation ?? [],
-          time_horizon: p.time_horizon,
-          prior_experience: p.prior_experience,
-          tech_level: p.tech_level,
-          secondary_skills: p.secondary_skills ?? [],
-          spoken_languages: p.spoken_languages ?? [],
-          weekly_availability: p.weekly_availability,
-          budget_range: p.budget_range,
-          preferred_business_models: p.preferred_business_models ?? [],
-          excluded_sectors: p.excluded_sectors ?? [],
-          preferred_sectors: p.preferred_sectors ?? [],
-          preferred_solution_types: p.preferred_solution_types ?? [],
-          preferred_target: p.preferred_target,
-          product_complexity: p.product_complexity,
-          priority_market: p.priority_market,
-          existing_sector_knowledge: p.existing_sector_knowledge,
-          report_detail_level: p.report_detail_level,
-          report_tone: p.report_tone,
-        })
+      const profile = await getProfile()
+      if (profile) {
+        const { profile_summary, ...fields } = profile
+        setHasProfile(true)
+        setProfileSummary(profile_summary ?? null)
+        setDraft(fields)
       }
       setInitialized(true)
     }
@@ -166,14 +125,10 @@ export default function SettingsPage() {
   }
 
   const handleSave = async () => {
-    if (!userId) return
+    if (!hasProfile) return
     setSaving(true)
     try {
-      await fetch('/api/user/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, ...draft }),
-      })
+      await saveProfile(draft)
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 3000)
     } finally {
@@ -182,20 +137,11 @@ export default function SettingsPage() {
   }
 
   const handleRegenerate = async () => {
-    if (!userId) return
+    if (!hasProfile) return
     setRegenerating(true)
     try {
-      await fetch('/api/user/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, ...draft }),
-      })
-      const res = await fetch('/api/user/profile/summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      })
-      const data = await res.json()
+      await saveProfile(draft)
+      const data = await regenerateProfileSummary(draft)
       setProfileSummary(data.summary)
     } finally {
       setRegenerating(false)
@@ -210,7 +156,7 @@ export default function SettingsPage() {
     )
   }
 
-  if (!userId) {
+  if (!hasProfile) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3">
         <UserCircle className="w-12 h-12 text-[#D0D4D8]" strokeWidth={1.5} />

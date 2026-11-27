@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, ArrowRight, Check } from 'lucide-react'
+import { generateReport } from '@/lib/actions'
 
 const CATEGORIES = [
   { key: 'job',       label: 'Emplois & Freelance',   emoji: '💼' },
@@ -47,14 +48,7 @@ export default function CrossReportBuilder() {
     setError(null)
     setStepIndex(0)
     try {
-      const userId = localStorage.getItem('mi_user_id') ?? undefined
-      const res = await fetch('/api/reports/cross', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categories: selected, userId }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue')
+      const data = await generateReport('cross', { categories: selected })
       router.push(`/reports/cross/${data.reportId}`)
     } catch (err) {
       setError((err as Error).message)

@@ -6,6 +6,7 @@ import {
   X, Briefcase, Users, Rocket, Star, Globe, Database,
   ArrowRight, Loader2, ChevronLeft,
 } from 'lucide-react'
+import { startCollection } from '@/lib/actions'
 
 type ScrapeType = 'category' | 'full'
 type CategoryKey = 'job' | 'community' | 'reviews' | 'startup'
@@ -143,24 +144,10 @@ export default function QuickScrapeModal({ isOpen, onClose }: Props) {
     setStepIndex(0)
 
     try {
-      let payload = {}
-      if (scrapeType === 'category' && selectedCategory) {
-        const cat = CATEGORIES.find(c => c.key === selectedCategory)
-        if (cat) {
-          payload = { sources: cat.sources }
-        }
-      }
-
-      const res = await fetch('/api/scraping/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: Object.keys(payload).length > 0 ? JSON.stringify(payload) : undefined,
-      })
-      const data = await res.json()
-      
-      if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue')
-      
-      const collected = data.collection?.signalsCollected ?? 0
+      const sources = scrapeType === 'category'
+        ? CATEGORIES.find(c => c.key === selectedCategory)?.sources
+        : undefined
+      const { signalsCollected: collected } = await startCollection(sources)
       setSuccessMsg(`Collecte terminée — ${collected} signaux analysés et stockés.`)
       
       // Auto-close after success

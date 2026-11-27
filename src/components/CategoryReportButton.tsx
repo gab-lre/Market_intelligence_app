@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, ArrowRight, Sparkles } from 'lucide-react'
+import { generateReport } from '@/lib/actions'
 
 const STEPS = [
   'Chargement des signaux de la catégorie...',
@@ -36,14 +37,7 @@ export default function CategoryReportButton({ category, label }: CategoryReport
     setError(null)
     setStepIndex(0)
     try {
-      const userId = localStorage.getItem('mi_user_id') ?? undefined
-      const res = await fetch('/api/reports/category', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, userId }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue')
+      const data = await generateReport('category', { category })
       router.push(`/reports/category/${data.reportId}`)
     } catch (err) {
       setError((err as Error).message)

@@ -4,17 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import QuickReportModal from '@/components/QuickReportModal';
 import QuickScrapeModal from '@/components/QuickScrapeModal';
-import { ChevronDown, Database, FileText, Activity, Clock, Box, FileOutput, Server, Calendar, Bell, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, Database, FileText, Activity, Clock, FileOutput, Server, ChevronRight, CheckCircle2 } from 'lucide-react';
+import type { CollectionRun, DashboardData, ReportSummary } from '@/lib/data';
 
 interface Props {
-  stats: {
-    opportunities: number;
-    newOpps: number;
-    signals: number;
-    averageScore: number;
-  };
-  recentReports: Array<{ id: string; title: string; type: string; created_at: string; status: string }>;
-  recentScrapes: Array<{ id: string; started_at: string; signals_collected: number; status: string }>;
+  stats: DashboardData['kpis'];
+  recentReports: ReportSummary[];
+  recentScrapes: CollectionRun[];
 }
 
 export default function DashboardRightSidebar({ stats, recentReports, recentScrapes }: Props) {

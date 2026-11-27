@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { PlayCircle, Loader2 } from 'lucide-react'
+import { startCollection } from '@/lib/actions'
 
 interface SourceStartButtonProps {
   sourceNames: string[]
@@ -18,13 +19,7 @@ export default function SourceStartButton({ sourceNames, label, disabled }: Sour
     if (disabled || state === 'loading' || sourceNames.length === 0) return
     setState('loading')
     try {
-      // /run = collect + analyse IA (pas /collect qui ne fait que la collecte sans analyse)
-      const res = await fetch('/api/scraping/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sources: sourceNames.map(s => ({ source: s })) }),
-      })
-      if (!res.ok) throw new Error('Erreur')
+      await startCollection(sourceNames)
       setState('success')
     } catch {
       setState('error')

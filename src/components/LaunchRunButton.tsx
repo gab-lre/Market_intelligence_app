@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Loader2, Database, ChevronRight } from 'lucide-react'
+import { startCollection } from '@/lib/actions'
 
 const SCRAPING_STEPS = [
   'Initialisation des collecteurs...',
@@ -40,10 +41,7 @@ export default function LaunchRunButton({ label = 'Démarrer une nouvelle analys
     setMessage(null)
     setStepIndex(0)
     try {
-      const res = await fetch('/api/scraping/run', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue')
-      const collected = data.collection?.signalsCollected ?? 0
+      const { signalsCollected: collected } = await startCollection()
       setMessage(`Collecte terminée — ${collected} signaux collectés`)
       setState('success')
     } catch (err) {

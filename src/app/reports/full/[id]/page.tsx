@@ -3,9 +3,8 @@ import {
   BarChart3, Users, Sword, Star, Lightbulb, User
 } from 'lucide-react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { getReport } from '@/lib/data'
 import { notFound } from 'next/navigation'
-import type { ReportSection } from '@/types/database'
 import ReportContent from '@/components/ReportContent'
 import PrintButton from '@/components/PrintButton'
 
@@ -21,22 +20,12 @@ const SECTION_ICONS: Record<number, React.ReactNode> = {
 export default async function FullReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  const { data: report } = await supabase
-    .from('generated_reports')
-    .select('*')
-    .eq('id', id)
-    .eq('type', 'full')
-    .maybeSingle()
+  const report = await getReport(id, 'full')
 
   if (!report) notFound()
 
-  const sections = (report.sections as ReportSection[])
-    .sort((a, b) => a.order - b.order)
-    .map(s => ({
-      ...s,
-      content: typeof s.content === 'string' ? s.content : String(s.content ?? ''),
-    }))
-  const params_ = report.generation_params as Record<string, unknown> | null
+  const sections = report.sections
+  const params_ = report.stats
 
   // Section 6 contient "Pour toi" en fin de contenu — on l'affiche différemment
   const mainSections = sections.filter(s => s.order < 6)

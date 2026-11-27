@@ -1,7 +1,7 @@
 import { ArrowLeft, Calendar, Database, BarChart3, Layers, Rocket, TrendingUp, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { getCollectionReport } from '@/lib/data'
 
 const SCORE_COLOR = (score: number) => {
   if (score >= 75) return 'text-emerald-600 bg-emerald-50 border-emerald-200'
@@ -12,73 +12,14 @@ const SCORE_COLOR = (score: number) => {
 export default async function SourceReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  const { data: run } = await supabase
-    .from('collections_history')
-    .select('*')
-    .eq('id', id)
-    .single()
+  const report = await getCollectionReport(id)
+  if (!report) notFound()
 
-  if (!run) notFound()
-
-  // Récupérer les signaux du batch
-  const { data: signals } = await supabase
-    .from('raw_signals')
-    .select('id, source, source_type, title')
-    .eq('batch_id', id)
-
-  const signalIds = (signals ?? []).map(s => s.id)
-
-  // Récupérer les opportunités liées à ces signaux
-  let opportunities: {
-    id: string
-    title: string
-    description: string | null
-    score_global: number
-    opportunity_type: string | null
-    target_market: string | null
-    complexity: string | null
-    source_types: string[]
-    status: string
-  }[] = []
-
-  if (signalIds.length > 0) {
-    const { data: oppSignals } = await supabase
-      .from('opportunity_signals')
-      .select('opportunity_id')
-      .in('signal_id', signalIds)
-
-    const oppIds = [...new Set((oppSignals ?? []).map(o => o.opportunity_id))]
-
-    if (oppIds.length > 0) {
-      const { data: opps } = await supabase
-        .from('opportunities')
-        .select('id, title, description, score_global, opportunity_type, target_market, complexity, source_types, status')
-        .in('id', oppIds)
-        .eq('status', 'active')
-        .order('score_global', { ascending: false })
-        .limit(20)
-
-      opportunities = opps ?? []
-    }
-  }
-
-  const summaries = run.results_summary as Record<string, { collected?: number; analyzed?: number; errors?: number }> | null
+  const { run, opportunities, signalsByType, signalsBySource, totalSignals } = report
+  const summaries = run.results_summary
   const sourcesNames = summaries
     ? Object.keys(summaries).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')
     : 'Multi-source'
-
-  // Répartition des signaux par source_type
-  const signalsByType = (signals ?? []).reduce<Record<string, number>>((acc, s) => {
-    const t = s.source_type ?? 'unknown'
-    acc[t] = (acc[t] ?? 0) + 1
-    return acc
-  }, {})
-
-  // Répartition par source
-  const signalsBySource = (signals ?? []).reduce<Record<string, number>>((acc, s) => {
-    acc[s.source] = (acc[s.source] ?? 0) + 1
-    return acc
-  }, {})
 
   return (
     <div className="w-full flex-1 pb-20">
@@ -224,7 +165,7 @@ export default async function SourceReportPage({ params }: { params: Promise<{ i
                     <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-[#257b57] rounded-full"
-                        style={{ width: `${Math.round((count / (signals?.length ?? 1)) * 100)}%` }}
+                        style={{ width: `${Math.round((count / totalSignals) * 100)}%` }}
                       />
                     </div>
                   </div>

@@ -1,12 +1,8 @@
-import { supabase } from '@/lib/supabase';
+import { getOpportunities } from '@/lib/data';
 import OpportunitiesPageClient from './OpportunitiesPageClient';
 
 export default async function OpportunitiesPage() {
-  // Fetch all opportunities
-  const { data: opportunities } = await supabase
-    .from('opportunities')
-    .select('id, title, problem, department, signal_count, score_global, target_market, created_at')
-    .order('score_global', { ascending: false });
+  const opportunities = await getOpportunities();
 
   // KPIs
   const total = opportunities?.length ?? 0;

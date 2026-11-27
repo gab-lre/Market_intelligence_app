@@ -7,21 +7,11 @@ import {
   Search, SlidersHorizontal, X, ArrowRight, RotateCcw,
   TrendingUp, Lightbulb, Star, ArrowUpRight,
 } from 'lucide-react';
+import type { OpportunitySummary } from '@/lib/data';
 
 // ──────────────────────────────────────────────
 // Types & Config
 // ──────────────────────────────────────────────
-
-interface OppRow {
-  id: string;
-  title: string;
-  problem: string | null;
-  department: string | null;
-  signal_count: number;
-  score_global: number;
-  target_market: string | null;
-  created_at: string;
-}
 
 interface KPIs { total: number; avgScore: number; highScore: number; }
 
@@ -67,7 +57,7 @@ function formatDate(iso: string) {
 
 export default function OpportunitiesPageClient({
   opportunities, kpis
-}: { opportunities: OppRow[]; kpis: KPIs }) {
+}: { opportunities: OpportunitySummary[]; kpis: KPIs }) {
   const router = useRouter();
   const [search, setSearch]                 = useState('');
   const [sort, setSort]                     = useState<SortKey>('score');

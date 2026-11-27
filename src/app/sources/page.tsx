@@ -1,87 +1,19 @@
-import { Briefcase, Users, Rocket, Star, Play, Calendar, CheckCircle2, AlertCircle, Clock } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { Briefcase, Users, Rocket, Star, Calendar, CheckCircle2, AlertCircle, Clock } from 'lucide-react'
+import { getSources } from '@/lib/data'
 import Link from 'next/link'
 import LaunchRunButton from '@/components/LaunchRunButton'
 import SourceStartButton from '@/components/SourceStartButton'
 import AnalyzePendingButton from '@/components/AnalyzePendingButton'
 
 // ──────────────────────────────────────────────
-// Config sources
+// Présentation des catégories (icône et couleur par identifiant)
 // ──────────────────────────────────────────────
 
-const CATEGORIES = [
-  {
-    id: 'emploi',
-    name: 'Emplois & Missions Freelance',
-    desc: 'Offres d\'emploi et missions freelance — signaux de besoins non automatisés.',
-    icon: Briefcase,
-    color: 'bg-blue-50 text-blue-600',
-    accent: '#3b82f6',
-    sources: [
-      { name: 'Upwork',         sourceKey: 'upwork',        type: 'Crédits', desc: 'Missions freelance mondiales',      emoji: '🌍' },
-      { name: 'France Travail', sourceKey: 'francetravail', type: 'Gratuit', desc: 'Offres d\'emploi officielles FR',   emoji: '🏛️' },
-      { name: 'LinkedIn',       sourceKey: 'linkedin',      type: 'Crédits', desc: 'Réseau pro — offres B2B',           emoji: '💼' },
-      { name: 'Indeed',         sourceKey: 'indeed',        type: 'Crédits', desc: 'Moteur d\'offres mondial',          emoji: '📋' },
-    ]
-  },
-  {
-    id: 'communaute',
-    name: 'Communautés & Insights',
-    desc: 'Discussions ouvertes, pain points et lancements produits.',
-    icon: Users,
-    color: 'bg-purple-50 text-purple-600',
-    accent: '#9333ea',
-    sources: [
-      { name: 'Dev.to',       sourceKey: 'devto',       type: 'Gratuit', desc: 'Communauté de développeurs',             emoji: '👨‍💻' },
-      { name: 'Reddit',       sourceKey: 'reddit',      type: 'Gratuit', desc: 'Forums SaaS, startups & secteurs pro',   emoji: '🔴' },
-      { name: 'Hacker News',  sourceKey: 'hackernews',  type: 'Gratuit', desc: 'Tech & Startups discussions',            emoji: '🟠' },
-      { name: 'Product Hunt', sourceKey: 'producthunt', type: 'Gratuit', desc: 'Lancements produits — pain points résolus', emoji: '🐱' },
-    ]
-  },
-  {
-    id: 'reviews',
-    name: 'Avis & Reviews Logiciels',
-    desc: 'Frustrations réelles d\'utilisateurs — signaux de gaps fonctionnels.',
-    icon: Star,
-    color: 'bg-amber-50 text-amber-600',
-    accent: '#d97706',
-    sources: [
-      { name: 'G2',         sourceKey: 'g2',         type: 'Crédits', desc: 'Avis B2B — 15 produits, 11 secteurs',        emoji: '⭐' },
-      { name: 'Trustpilot', sourceKey: 'trustpilot', type: 'Crédits', desc: 'Avis services B2B — PME & non-tech',         emoji: '🌟' },
-      { name: 'Capterra',   sourceKey: 'capterra',   type: 'Crédits', desc: 'Avis logiciels — Field service, retail, F&B', emoji: '📊' },
-    ]
-  },
-  {
-    id: 'startup',
-    name: 'Écosystème Startups',
-    desc: 'Offres dans les startups et SaaS en croissance.',
-    icon: Rocket,
-    color: 'bg-[#E6F4EA] text-[#257b57]',
-    accent: '#257b57',
-    sources: [
-      { name: 'Wellfound', sourceKey: 'wellfound', type: 'Crédits', desc: 'Jobs en Startups et SaaS', emoji: '🚀' },
-    ]
-  }
-]
-
-type SourceSummaryEntry = { collected: number; errors: number; durationMs: number }
-
-function buildLastRunMap(
-  history: Array<{ started_at: string; results_summary: Record<string, unknown> | null }>
-): Record<string, { date: string; collected: number } | null> {
-  const map: Record<string, { date: string; collected: number } | null> = {}
-  const allSourceKeys = CATEGORIES.flatMap(c => c.sources.map(s => s.sourceKey))
-  for (const key of allSourceKeys) {
-    map[key] = null
-    for (const row of history) {
-      const summary = row.results_summary as Record<string, SourceSummaryEntry> | null
-      if (summary && summary[key]) {
-        map[key] = { date: row.started_at, collected: summary[key].collected }
-        break
-      }
-    }
-  }
-  return map
+const CATEGORY_STYLE: Record<string, { icon: typeof Briefcase; color: string }> = {
+  emploi:     { icon: Briefcase, color: 'bg-blue-50 text-blue-600' },
+  communaute: { icon: Users,     color: 'bg-purple-50 text-purple-600' },
+  reviews:    { icon: Star,      color: 'bg-amber-50 text-amber-600' },
+  startup:    { icon: Rocket,    color: 'bg-[#E6F4EA] text-[#257b57]' },
 }
 
 function formatDate(iso: string) {
@@ -96,16 +28,10 @@ function formatDateShort(iso: string) {
 // ──────────────────────────────────────────────
 
 export default async function SourcesPage() {
-  const { data: history } = await supabase
-    .from('collections_history')
-    .select('id, started_at, finished_at, status, results_summary, signals_collected')
-    .order('started_at', { ascending: false })
-    .limit(15)
-
-  const lastRunMap = buildLastRunMap(history ?? [])
+  const { categories, history, lastRunBySource: lastRunMap } = await getSources()
 
   // KPIs
-  const totalSources = CATEGORIES.flatMap(c => c.sources).length
+  const totalSources = categories.flatMap(c => c.sources).length
   const activeSources = Object.values(lastRunMap).filter(v => v !== null).length
   const lastRun = history?.[0]
 
@@ -163,15 +89,15 @@ export default async function SourcesPage() {
 
       {/* ─── Source Categories ─── */}
       <div className="flex-1 overflow-y-auto plugin-noscrollbar space-y-3 min-h-0">
-        {CATEGORIES.map((cat) => {
-          const CatIcon = cat.icon
-          const sourceKeys = cat.sources.map(s => s.sourceKey)
+        {categories.map((cat) => {
+          const { icon: CatIcon, color } = CATEGORY_STYLE[cat.id] ?? CATEGORY_STYLE.startup
+          const sourceKeys = cat.sources.map(s => s.key)
           return (
             <div key={cat.id} className="bg-white rounded-[24px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
               {/* Category Header */}
               <div className="flex items-start justify-between mb-5">
                 <div className="flex items-center gap-3">
-                  <div className={`w-11 h-11 rounded-xl ${cat.color} flex items-center justify-center shrink-0`}>
+                  <div className={`w-11 h-11 rounded-xl ${color} flex items-center justify-center shrink-0`}>
                     <CatIcon strokeWidth={2} className="w-5 h-5" />
                   </div>
                   <div>
@@ -185,9 +111,9 @@ export default async function SourcesPage() {
               {/* Sources grid */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                 {cat.sources.map((source) => {
-                  const runInfo = lastRunMap[source.sourceKey]
+                  const runInfo = lastRunMap[source.key]
                   return (
-                    <div key={source.sourceKey} className="bg-[#FAFBFC] border border-[#F0F2F4] rounded-2xl p-3.5 flex flex-col gap-2">
+                    <div key={source.key} className="bg-[#FAFBFC] border border-[#F0F2F4] rounded-2xl p-3.5 flex flex-col gap-2">
                       <div className="flex items-center justify-between">
                         <span className="text-xl leading-none">{source.emoji}</span>
                         <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md border ${
@@ -250,7 +176,7 @@ export default async function SourcesPage() {
                 </thead>
                 <tbody>
                   {history.map(row => {
-                    const summaries = row.results_summary as Record<string, unknown> | null
+                    const summaries = row.results_summary
                     const sourceNames = summaries
                       ? Object.keys(summaries).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')
                       : '—'

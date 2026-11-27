@@ -1,11 +1,10 @@
 import { notFound } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { getOpportunity } from '@/lib/data'
 import BackButton from '@/components/BackButton'
 import type {
-  Opportunity, RawSignal,
-  OpportunityDepartment, TargetMarket, OpportunityType,
+  Department, TargetMarket, OpportunityType,
   TimeToMvp, Complexity, MarketSizeHint, RevenueModel,
-} from '@/types/database'
+} from '@/lib/data'
 
 // ─── Helpers de formatage ───────────────────────────────────────────────────
 
@@ -13,7 +12,7 @@ function fmt(map: Record<string, string>, val: string | null): string {
   return val ? (map[val] ?? val) : '—'
 }
 
-const DEPT_LABELS: Record<OpportunityDepartment, string> = {
+const DEPT_LABELS: Record<Department, string> = {
   commercial: 'Commercial', marketing: 'Marketing', operations: 'Opérations',
   finance: 'Finance', rh: 'RH', technique: 'Technique', support: 'Support', autre: 'Autre',
 }
@@ -32,13 +31,6 @@ const REVENUE_LABELS: Record<RevenueModel, string> = {
   usage_based: "À l'usage", freemium: 'Freemium',
 }
 
-// ─── Types pour le join signaux ──────────────────────────────────────────────
-
-type SignalLink = {
-  relevance_note: string | null
-  raw_signals: Pick<RawSignal, 'id' | 'title' | 'source' | 'url' | 'collected_at'>
-}
-
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 interface PageProps {
@@ -48,21 +40,10 @@ interface PageProps {
 export default async function OpportunityDetailPage({ params }: PageProps) {
   const { id } = await params
 
-  const { data: rawOpportunity, error } = await supabase
-    .from('opportunities')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
+  const opportunity = await getOpportunity(id)
+  if (!opportunity) notFound()
 
-  if (!rawOpportunity || error) notFound()
-  const opportunity = rawOpportunity as unknown as Opportunity
-
-  const { data: signalLinks } = await supabase
-    .from('opportunity_signals')
-    .select('relevance_note, raw_signals(id, title, source, url, collected_at)')
-    .eq('opportunity_id', id)
-
-  const signals = (signalLinks ?? []) as unknown as SignalLink[]
+  const signals = opportunity.signals
 
   const scores = [
     { label: 'Volume',    value: opportunity.score_volume,    help: 'Signaux collectés' },
@@ -221,28 +202,28 @@ export default async function OpportunityDetailPage({ params }: PageProps) {
               </thead>
               <tbody>
                 {signals.map((link, i) => (
-                  <tr key={link.raw_signals.id ?? i} className="border-b border-[#F0F2F4] hover:bg-[#FAFBFC] transition-colors">
+                  <tr key={link.id ?? i} className="border-b border-[#F0F2F4] hover:bg-[#FAFBFC] transition-colors">
                     <td className="py-4 px-8 text-[13px] font-medium text-[#1A1C1E]">
-                      {link.raw_signals.url ? (
+                      {link.url ? (
                         <a
-                          href={link.raw_signals.url}
+                          href={link.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-[#257b57] hover:underline font-bold"
                         >
-                          {link.raw_signals.title ?? 'Sans titre'}
+                          {link.title ?? 'Sans titre'}
                         </a>
                       ) : (
-                        link.raw_signals.title ?? 'Sans titre'
+                        link.title ?? 'Sans titre'
                       )}
                     </td>
                     <td className="py-4 px-8">
                       <span className="px-2.5 py-1 bg-[#FAFBFC] border border-[#F0F2F4] text-[#707478] text-[9px] font-black uppercase tracking-widest rounded-[8px]">
-                        {link.raw_signals.source}
+                        {link.source}
                       </span>
                     </td>
                     <td className="py-4 px-8 text-[#A0A4A8] text-[12px] font-medium">
-                      {new Date(link.raw_signals.collected_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {new Date(link.collected_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </td>
                     <td className="py-4 px-8 text-[#707478] text-[12px] font-medium">{link.relevance_note ?? '—'}</td>
                   </tr>

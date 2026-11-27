@@ -2,27 +2,14 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { Search, ArrowRight, SlidersHorizontal, X, RotateCcw, LayoutGrid } from 'lucide-react';
+import type { OpportunitySummary } from '@/lib/data';
 
 // ──────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────
 
-interface OppRow {
-  id: string;
-  title: string;
-  problem: string | null;
-  description: string | null;
-  revenue_model: string | null;
-  department: string | null;
-  signal_count: number;
-  score_global: number;
-  target_market: string | null;
-  created_at: string;
-  opportunity_signals?: any;
-}
-
 interface OpportunitiesSectionProps {
-  opportunities: OppRow[] | any;
+  opportunities: OpportunitySummary[];
 }
 
 // ──────────────────────────────────────────────
@@ -85,7 +72,7 @@ const LIST_PAGE_SIZE = 9;
 // ──────────────────────────────────────────────
 
 export function OpportunitiesSection({ opportunities }: OpportunitiesSectionProps) {
-  const safeOpps: OppRow[] = opportunities || [];
+  const safeOpps = opportunities;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');

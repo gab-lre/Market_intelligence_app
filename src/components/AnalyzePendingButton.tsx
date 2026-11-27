@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { BrainCircuit, Loader2, ChevronRight } from 'lucide-react'
+import { getPendingSignalsCount } from '@/lib/data'
+import { runAnalysis } from '@/lib/actions'
 
 type State = 'idle' | 'loading' | 'success' | 'error'
 
@@ -20,9 +22,8 @@ export default function AnalyzePendingButton() {
 
   // Charger le nombre de signaux pending au montage
   useEffect(() => {
-    fetch('/api/analyze')
-      .then(r => r.json())
-      .then(d => setPendingCount(d.pendingSignals ?? 0))
+    getPendingSignalsCount()
+      .then(setPendingCount)
       .catch(() => setPendingCount(null))
   }, [])
 
@@ -31,13 +32,7 @@ export default function AnalyzePendingButton() {
     setState('loading')
     setResult(null)
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit: 50 }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Erreur')
+      const data = await runAnalysis(50)
       setResult(data)
       setPendingCount(data.pendingRemaining ?? 0)
       setState('success')

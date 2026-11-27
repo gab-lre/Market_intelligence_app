@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, ArrowRight, Sparkles } from 'lucide-react'
+import { generateReport } from '@/lib/actions'
 
 const GENERATION_STEPS = [
   'Analyse de toutes les sources...',
@@ -32,14 +33,7 @@ export default function FullReportButton() {
     setError(null)
     setStepIndex(0)
     try {
-      const userId = localStorage.getItem('mi_user_id') ?? undefined
-      const res = await fetch('/api/reports/full', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue')
+      const data = await generateReport('full')
       router.push(`/reports/full/${data.reportId}`)
     } catch (err) {
       setError((err as Error).message)

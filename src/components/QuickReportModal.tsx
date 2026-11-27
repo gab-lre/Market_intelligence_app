@@ -6,6 +6,7 @@ import {
   X, Briefcase, Users, Rocket, Globe, Layers, BarChart2,
   ArrowRight, Loader2, ChevronLeft, CheckSquare, Square,
 } from 'lucide-react'
+import { generateReport } from '@/lib/actions'
 
 type ReportType = 'category' | 'cross' | 'full'
 type CategoryKey = 'job' | 'community' | 'startup'
@@ -162,45 +163,13 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
     setError(null)
     setStepIndex(0)
     try {
-      const userId = typeof window !== 'undefined' ? (localStorage.getItem('mi_user_id') ?? undefined) : undefined
-
-      let res: Response
-      let data: { reportId?: string; error?: string }
-
-      if (reportType === 'category') {
-        res = await fetch('/api/reports/category', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ category: selectedCategory, userId }),
-        })
-        data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue')
-        onClose()
-        router.push(`/reports/category/${data.reportId}`)
-        router.refresh()
-      } else if (reportType === 'cross') {
-        res = await fetch('/api/reports/cross', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ categories: selectedCategories, userId }),
-        })
-        data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue')
-        onClose()
-        router.push(`/reports/cross/${data.reportId}`)
-        router.refresh()
-      } else {
-        res = await fetch('/api/reports/full', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId }),
-        })
-        data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue')
-        onClose()
-        router.push(`/reports/full/${data.reportId}`)
-        router.refresh()
-      }
+      const { reportId } = await generateReport(reportType, {
+        category: selectedCategory ?? undefined,
+        categories: selectedCategories,
+      })
+      onClose()
+      router.push(`/reports/${reportType}/${reportId}`)
+      router.refresh()
     } catch (err) {
       setError((err as Error).message)
       setLoading(false)

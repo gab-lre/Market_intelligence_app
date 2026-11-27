@@ -1,8 +1,7 @@
 import { ArrowLeft, BrainCircuit, Calendar, GitMerge, AlertCircle, Lightbulb, Star, User } from 'lucide-react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { getReport } from '@/lib/data'
 import { notFound } from 'next/navigation'
-import type { ReportSection } from '@/types/database'
 import ReportContent from '@/components/ReportContent'
 import PrintButton from '@/components/PrintButton'
 
@@ -17,17 +16,12 @@ const SECTION_ICONS: Record<number, React.ReactNode> = {
 export default async function CrossReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  const { data: report } = await supabase
-    .from('generated_reports')
-    .select('*')
-    .eq('id', id)
-    .eq('type', 'cross')
-    .maybeSingle()
+  const report = await getReport(id, 'cross')
 
   if (!report) notFound()
 
-  const sections = (report.sections as ReportSection[]).sort((a, b) => a.order - b.order)
-  const params_ = report.generation_params as Record<string, unknown> | null
+  const sections = report.sections
+  const params_ = report.stats
   const forYouSection = sections.find(s => s.order === 5)
   const mainSections = sections.filter(s => s.order !== 5)
 
