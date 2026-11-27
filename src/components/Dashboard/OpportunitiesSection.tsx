@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { Search, ArrowRight, SlidersHorizontal, X, RotateCcw, LayoutGrid } from 'lucide-react';
 import type { OpportunitySummary } from '@/lib/data';
 
@@ -74,7 +75,8 @@ const LIST_PAGE_SIZE = 9;
 export function OpportunitiesSection({ opportunities }: OpportunitiesSectionProps) {
   const safeOpps = opportunities;
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // La première opportunité est sélectionnée par défaut
+  const [selectedId, setSelectedId] = useState<string | null>(safeOpps[0]?.id ?? null);
   const [search, setSearch] = useState('');
   const [rightPane, setRightPane] = useState<RightPane>('detail');
 
@@ -84,13 +86,6 @@ export function OpportunitiesSection({ opportunities }: OpportunitiesSectionProp
   const [filterScoreMin, setFilterScoreMin] = useState(0);
 
   const activeFilterCount = filterDepts.length + (filterScoreMin > 0 ? 1 : 0);
-
-  // Auto-select first on mount
-  useEffect(() => {
-    if (safeOpps.length > 0 && !selectedId) {
-      setSelectedId(safeOpps[0].id);
-    }
-  }, [safeOpps, selectedId]);
 
   const toggleDept = (d: string) => {
     setFilterDepts(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
@@ -249,13 +244,13 @@ export function OpportunitiesSection({ opportunities }: OpportunitiesSectionProp
 
               {/* "See all" button */}
               {hiddenCount > 0 && (
-                <a
+                <Link
                   href="/opportunities"
                   className="flex items-center justify-center gap-2 mt-2 w-full py-2.5 rounded-[18px] border border-dashed border-slate-200 text-[11px] font-bold text-[#707478] hover:border-[#1A1C1E] hover:text-[#1A1C1E] hover:bg-[#F4F6F8] transition-all group"
                 >
                   <span>+{hiddenCount} opportunité{hiddenCount > 1 ? 's' : ''} supplémentaire{hiddenCount > 1 ? 's' : ''}</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                </a>
+                </Link>
               )}
             </>
           )}
@@ -462,7 +457,7 @@ export function OpportunitiesSection({ opportunities }: OpportunitiesSectionProp
                     href={`/opportunities/${detailData.id}`}
                     className="flex items-center gap-2 px-5 py-2.5 bg-[#1A1C1E] hover:bg-black text-white rounded-full text-xs font-bold transition-all shadow-sm"
                   >
-                    Voir l'analyse <ArrowRight strokeWidth={2} className="w-4 h-4" />
+                    Voir l&apos;analyse <ArrowRight strokeWidth={2} className="w-4 h-4" />
                   </a>
                 </div>
               </div>

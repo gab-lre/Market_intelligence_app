@@ -160,7 +160,7 @@ export default function SettingsPage() {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3">
         <UserCircle className="w-12 h-12 text-[#D0D4D8]" strokeWidth={1.5} />
-        <p className="text-[#707478] font-medium text-sm">Aucun profil trouvé. Complétez d'abord l'onboarding.</p>
+        <p className="text-[#707478] font-medium text-sm">Aucun profil trouvé. Complétez d&apos;abord l&apos;onboarding.</p>
       </div>
     )
   }
@@ -205,7 +205,7 @@ export default function SettingsPage() {
                 <Sparkles className="w-4 h-4 text-[#257b57]" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#257b57]">Résumé IA de ton profil</span>
               </div>
-              <p className="text-white/70 text-[13px] font-medium leading-relaxed italic">"{profileSummary}"</p>
+              <p className="text-white/70 text-[13px] font-medium leading-relaxed italic">&quot;{profileSummary}&quot;</p>
               <div className="mt-4 flex justify-end">
                 <button
                   onClick={handleRegenerate}
@@ -415,7 +415,7 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <FieldLabel>Secteurs d'affinité (texte libre)</FieldLabel>
+              <FieldLabel>Secteurs d&apos;affinité (texte libre)</FieldLabel>
               <input
                 type="text"
                 placeholder="Ex : e-commerce, logistique, education..."

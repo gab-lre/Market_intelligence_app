@@ -285,7 +285,7 @@ export default function QuickScrapeModal({ isOpen, onClose }: Props) {
                 </div>
                 <h3 className="text-xl font-black text-white mb-2">Collecte de Données Globale</h3>
                 <p className="text-white/60 text-sm font-medium leading-relaxed">
-                  Lance tous les scraper en parallèle, consolide tous les signaux récents à travers les plateformes communautaires, d'emplois, et annuaires startups pour une analyse marché ultra-complète via Gemini.
+                  Lance tous les scraper en parallèle, consolide tous les signaux récents à travers les plateformes communautaires, d&apos;emplois, et annuaires startups pour une analyse marché ultra-complète via Gemini.
                 </p>
                 <p className="text-white/40 text-xs font-bold mt-3 uppercase tracking-widest">Durée estimée : ~4 minutes</p>
               </div>

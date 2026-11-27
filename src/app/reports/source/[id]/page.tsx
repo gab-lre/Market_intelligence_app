@@ -99,7 +99,7 @@ export default async function SourceReportPage({ params }: { params: Promise<{ i
           {opportunities.length === 0 ? (
             <div className="bg-white rounded-[24px] border border-dashed border-slate-300 p-12 text-center shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
               <p className="text-slate-400 font-medium text-sm">Aucune opportunité liée à cette collecte.</p>
-              <p className="text-slate-400 text-xs mt-2">Les signaux n'ont peut-être pas encore été analysés.</p>
+              <p className="text-slate-400 text-xs mt-2">Les signaux n&apos;ont peut-être pas encore été analysés.</p>
             </div>
           ) : (
             <div className="space-y-4">

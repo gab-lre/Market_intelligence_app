@@ -21,7 +21,8 @@ const NAV_ITEMS = [
     links: [
       { href: '/',              label: 'Dashboard',     icon: LayoutDashboard, match: (p: string) => p === '/' },
       { href: '/opportunities', label: 'Opportunités',  icon: Lightbulb,       match: (p: string) => p.startsWith('/opportunities') },
-      { href: '/documents',     label: 'Mes Documents', icon: FolderOpen,      match: (p: string) => p.startsWith('/documents') },
+      // Page Documents supprimée : l'entrée mène à la liste des rapports.
+      { href: '/reports',       label: 'Mes Documents', icon: FolderOpen,      match: (p: string) => p.startsWith('/documents') },
       { href: '/reports',       label: 'Rapports',      icon: BarChart2,       match: (p: string) => p.startsWith('/reports') },
       { href: '/sources',       label: 'Sources',       icon: Database,        match: (p: string) => p.startsWith('/sources') },
     ],
@@ -65,7 +66,7 @@ export default function Navigation() {
                 const active = match(pathname);
                 return (
                   <Link
-                    key={href}
+                    key={label}
                     href={href}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-sm ${
                       active

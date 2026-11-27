@@ -78,7 +78,7 @@ export default async function ReportsHubPage() {
                 </div>
                 <div>
                   <h2 className="font-black text-[#1A1C1E] text-[15px]">Rapports par catégorie</h2>
-                  <p className="text-[11px] text-[#707478] font-medium">Analyse IA d'une catégorie de sources.</p>
+                  <p className="text-[11px] text-[#707478] font-medium">Analyse IA d&apos;une catégorie de sources.</p>
                 </div>
               </div>
 

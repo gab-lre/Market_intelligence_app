@@ -83,7 +83,7 @@ export default function AnalyzePendingButton() {
       )}
       {pendingCount !== null && pendingCount > 50 && state === 'idle' && (
         <p className="text-[10px] text-amber-600 font-medium">
-          Traitement par lots de 50 — relancez jusqu'à épuisement
+          Traitement par lots de 50 — relancez jusqu&apos;à épuisement
         </p>
       )}
     </div>
