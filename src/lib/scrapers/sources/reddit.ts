@@ -7,29 +7,35 @@ import type { Scraper, RawSignalInput } from '../types'
 const REDDIT_BASE = 'https://www.reddit.com'
 
 const DEFAULT_SUBREDDITS = [
-  'SaaS',
+  // Communautés professionnelles non-tech (pain points cross-industries)
+  'smallbusiness',
+  'accounting',
+  'humanresources',
+  'projectmanagement',
+  'legaladvice',
+  'logistics',
+  'realestate',
+  // Tech / fondateurs (gardés pour signal qualité)
   'startups',
   'Entrepreneur',
-  'smallbusiness',
   'indiehackers',
+  'SaaS',
   'microsaas',
-  'webdev',
-  'sideproject',
 ]
 
 const DEFAULT_KEYWORDS = [
-  'need a tool',
-  'looking for',
+  'we use spreadsheet',
+  'manually track',
   'wish there was',
-  'built a',
-  'pain point',
-  'manual process',
-  'anyone know',
-  'alternative to',
+  'is there a tool',
+  'every week I',
+  'we have to email',
+  'no software for',
+  'spent hours',
 ]
 
 const DEFAULT_MAX_POSTS_PER_SUB = 25
-const DEFAULT_MIN_SCORE = 3
+const DEFAULT_MIN_SCORE = 5
 const REQUEST_DELAY_MS = 2000
 
 const FETCH_HEADERS = {

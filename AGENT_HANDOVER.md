@@ -7,7 +7,10 @@ Ce fichier fournit le contexte complet de l'application à un agent IA prenant l
 ## 🧭 Concept
 
 L'application **SaaS Market Intelligence** est un outil interne de collecte et d'analyse de données.
-**But** : Scanner des sources publiques (Hacker News, Reddit, France Travail, LinkedIn, Indeed, Malt, Upwork, Dev.to, G2, Wellfound, Product Hunt), repérer les expressions de besoins résolvables par un SaaS/agent IA/template, les analyser via Gemini 2.5 Flash, les classer par score de pertinence, et les présenter dans un dashboard personnalisé selon le profil utilisateur.
+**But** : Scanner des sources publiques tous secteurs (emplois, reviews logiciels, communautés, freelance), repérer les expressions de besoins résolvables par un SaaS/agent IA/template, les analyser via un pipeline OpenAI multi-couches, les classer par score de pertinence, et les présenter dans un dashboard personnalisé selon le profil utilisateur.
+
+**Sources actives :** HackerNews, Reddit (12 subreddits), France Travail, Dev.to, G2 (15 produits/11 industries), Wellfound, Upwork, LinkedIn, Indeed (10 recherches), Trustpilot (10 URLs B2B), ProductHunt (RSS)
+**Sources désactivées :** Capterra (90 signaux déjà collectés — réactiver manuellement), Malt (trop coûteux), IndieHackers (SPA non scrappable)
 
 ---
 
@@ -19,20 +22,22 @@ L'application **SaaS Market Intelligence** est un outil interne de collecte et d
 | BDD | Supabase (PostgreSQL) via `@supabase/supabase-js` |
 | Styles | Tailwind CSS v4 |
 | UI | Code sur-mesure — pas de Shadcn ni autres libs. Icônes : `lucide-react` |
-| IA | Google Gemini API (`@google/generative-ai`) — modèle `gemini-2.5-flash` |
-| Scraping | Apify (actors tiers) + APIs publiques directes |
+| IA (pipeline principal) | OpenAI — gpt-4.1-nano (classifier) + gpt-5-mini (analyzer) + gpt-5 (rapports) |
+| IA (profil summary uniquement) | Google Gemini `gemini-2.5-flash` via `/api/user/profile/summary` |
+| Scraping | Apify (actors tiers) + APIs publiques directes + RSS |
 | Hébergement | Local uniquement (`npm run dev`) |
 
 ---
 
 ## 🎨 Règles UI/UX — NON NÉGOCIABLES
 
-1. **Light Mode forcé** — fonds clairs, tons slate
-2. **Couleur primaire** : `#2b3652` — titres, nav secondaire, fonds blocs importants
-3. **Couleur accent** : `#00b4d8` — scores, CTA, hover actifs
-4. **Formes** : **zéro `rounded`** — tout rectangulaire (`rounded-none` ou `rounded-sm` max pour micro-éléments)
-5. **Labels** : `uppercase tracking-widest text-[10px]` pour les hiérarchies de labels
-6. **Print** : classes `print:hidden` / `print:max-w-full` sur les pages de rapport pour export PDF via `window.print()`
+1. **Mode Clair ("Light Mode") Intégré** — Base de fond `#F4F6F8` (gris très clair) avec cartes de contenu blanches `#FFFFFF`. Pas de mode sombre.
+2. **Densité d'Information (Grille & Espacements)** — Interface à l'aspect dense et compact. `gap-2` globaux. Hauteur minimisée pour les graphiques (`h-[160px]`) pour privilégier l'espace des listes et détails en flexibilité (`flex-1`).
+3. **Formes & Contours** : Utilisation intensive de coins arrondis larges (`rounded-[24px]`) sur la quasi-totalité des conteneurs (`cards`, graphiques, sidebar, TopHeader) combinées à `shadow-[0_4px_20px_rgba(0,0,0,0.02)]`.  *(Annule explicitement l'ancienne règle "zéro rounded")*
+4. **Couleur primaire/texte** : `#1A1C1E` (titres et corps noir profond), gris secondaires `#707478` (sous-titres, dates).
+5. **Couleurs accents** : `#257b57` (Vert succès, scores), `#b64390` (Rose magenta, métriques).
+6. **Typographie** : Polices resserrées (`tracking-tight`), labels souvent en `uppercase tracking-widest text-[9px] ou [10px]`. Lettrages gras privilégiés pour les titres de section (`font-bold text-[14px]`).
+7. **Print** : classes `print:hidden` / `print:max-w-full` sur les pages de rapport pour export PDF via `window.print()`
 
 ---
 
@@ -45,15 +50,19 @@ L'application **SaaS Market Intelligence** est un outil interne de collecte et d
 
 ### BLOC 2 — Collecteurs de données (100% ✅)
 - Architecture scraping : `types.ts`, `registry.ts`, `engine.ts`
-- **Actifs** : Hacker News, Reddit, France Travail (OAuth2), Dev.to, G2 (Apify), Wellfound (Apify), Upwork (Apify), Malt (Apify), LinkedIn (Apify), Indeed (Apify)
-- **Stubs désactivés** : Product Hunt (Cloudflare), Indie Hackers (SPA)
+- **Actifs** : HackerNews, Reddit, France Travail (OAuth2), Dev.to, G2 (Apify), Wellfound (Apify), Upwork (Apify), LinkedIn (Apify), Indeed (Apify), ProductHunt (RSS), Trustpilot (Apify)
+- **Actif mais désactivé temporairement** : Capterra (90 signaux déjà collectés — `enabled: false` dans registry)
+- **Désactivés définitivement** : Malt (trop coûteux), IndieHackers (SPA non scrappable)
 - Déduplication par `external_id` dans `insertSignals()` — pas d'upsert Supabase (incompatible avec index partiel)
 
 ### BLOC 3 — Pipeline IA (100% ✅)
 - Migration 002 exécutée — 12 colonnes IA dans `opportunities`
-- `prompts.ts` — prompt V2 (SaaS / Agent IA / Template, calibré francophone solo dev)
-- `analyzer.ts` — analyse par batch + fusion d'opportunités similaires (2e appel Gemini)
-- `scoring.ts` — `recalculateOpportunityScore()` + scoring personnalisé `computePersonalizedScore()`
+- **Architecture 3 couches OpenAI** :
+  - Layer 0 : `prefilter.ts` — filtre TypeScript gratuit (longueur, mots-clés, source-type routing)
+  - Layer 1 : `classifier.ts` — gpt-4.1-nano via Chat Completions API (classification rapide)
+  - Layer 2 : `analyzer.ts` — gpt-5-mini via Responses API, analyse + merge check fusionné en 1 appel
+- `prompts.ts` — prompt V2 cross-industries + PÉRIMÈTRE par type de source + scoring recalibré
+- `scoring.ts` — formule V2 : `quality = urgency×0.5 + tool_gap×0.4 - saturation×0.1` + bonus log volume (max +15)
 - Pipeline complet : collecte → analyse → scoring via `/api/scraping/run`
 
 ### BLOC 4 — Interface Dashboard (100% ✅)
@@ -74,13 +83,33 @@ L'application **SaaS Market Intelligence** est un outil interne de collecte et d
 - Export PDF via `PrintButton.tsx` (`window.print()` + classes `print:`)
 - Architecture single-user : UUID en `localStorage` (`mi_user_id`) → profil en BDD
 
-### BLOC 6 — Personnalisation IA par Profil (En cours 🔄)
+### BLOC 6 — Personnalisation IA par Profil (100% ✅)
 
 **Étape 6.1 terminée — Injection profil dans le pipeline complet**
 - `src/lib/userProfile.ts` — `fetchUserProfile()` : récupère le profil depuis Supabase
 - `src/lib/scrapers/profileParams.ts` — `buildScraperParamsFromProfile()` : keywords/tags/locations par scraper selon profil
 - `src/lib/ai/prompts.ts` — `buildAnalysisSystemPrompt(profile)` : 12 contraintes injectées dans le prompt Gemini (tech_level, budget_range, excluded_sectors, priority_market, preferred_solution_types, etc.)
 - Toutes les routes de scraping (`/run`, `/analyze`, `/collect`) fetchent le profil et le passent aux fonctions
+
+### BLOC 8 — Migration Pipeline IA : Gemini → OpenAI Multi-couches (100% ✅)
+- Voir `NOTES.md` section BLOC 8 pour le détail complet
+
+### BLOC 9 — Refonte Stratégique : Cross-Industries + Nouvelles Sources (100% ✅)
+- Corriger bugs G2 (per-URL quota) et Dev.to (per-tag quota)
+- Nouveaux scrapers : Capterra (Apify `dionysus_way/capterra-reviews`), Trustpilot (Apify `happitap`), ProductHunt (RSS natif)
+- Prefilter : bypass keyword filter pour les review/job sources
+- Scoring V2 : quality-first + bonus logarithmique volume
+- Prompts : tous secteurs + PÉRIMÈTRE par source + source context dans buildFusedAnalysisPrompt
+- Registry : 11 sources reconfigurées (keywords, volumes, URLs)
+- UI : 4 catégories (Emplois / Communautés / Avis & Reviews / Startups)
+- Analyzer : merge check étendu à 50 opportunités (was 20)
+
+### BLOC 7 — Refonte Dashboard UI/UX "Pixel-Perfect" (100% ✅)
+- Aligné au pixel près avec une maquette figma-like (densité accrue, style épuré, fonds clairs, ombres subtiles).
+- TopHeader restructuré ("Pill" avec recherche centrale bordée de stroke subtile) et marges rectifiées (`mt-3 mb-5`).
+- Les graphiques (Layer centrale) respectent une répartition 50/50 (`grid-cols-2`). Le radar empiète proportionnellement sur la moitié de la page (au milieu du 3ème KPI), ce qui le rend visuellement plus large que la partie "Listes" située sous lui.
+- Ajout d'origine/Y-Axis sur le Spline Chart et lissage de courbes.
+- Zone Liste / Détails (OpportunitiesSection) : Simplification drastique. La liste a des bulles score intégrées. Les détails retirent l'excès de grilles pour un modèle textuel long et focalisé ("Problème Identifié"), se rapprochant de l'interface "Mail" de l'image de référence. `overflow` corrigé.
 
 ---
 
@@ -100,25 +129,31 @@ src/
 │   │   ├── engine.ts                ← runScrapingEngine(sources?, profile?) + insertSignals()
 │   │   ├── profileParams.ts         ← buildScraperParamsFromProfile(profile)
 │   │   └── sources/
-│   │       ├── hackernews.ts        ← API Algolia (opérationnel)
-│   │       ├── reddit.ts            ← API JSON publique (opérationnel)
-│   │       ├── francetravail.ts     ← OAuth2 (opérationnel)
-│   │       ├── devto.ts             ← API REST native (opérationnel)
-│   │       ├── g2.ts                ← Apify product-reviews (opérationnel)
+│   │       ├── hackernews.ts        ← API Algolia + filtre 30j (opérationnel)
+│   │       ├── reddit.ts            ← API JSON publique, 12 subreddits, 8 keywords comportementaux (opérationnel)
+│   │       ├── francetravail.ts     ← OAuth2, 15 keywords rôles manuels (opérationnel)
+│   │       ├── devto.ts             ← API REST native, per-tag quota, filtre 30j (opérationnel)
+│   │       ├── g2.ts                ← Apify product-reviews, per-URL quota, 15 produits (opérationnel)
 │   │       ├── wellfound.ts         ← Apify wellfound-api-ppe (opérationnel)
-│   │       ├── upwork.ts            ← Apify flash_mage/upwork (opérationnel)
-│   │       ├── malt.ts              ← Apify shoya/malt-profile-scraper (opérationnel)
+│   │       ├── upwork.ts            ← Apify flash_mage/upwork, 7 keywords orientés besoins (opérationnel)
+│   │       ├── malt.ts              ← Apify shoya/malt-profile-scraper (DÉSACTIVÉ — trop coûteux)
 │   │       ├── linkedin.ts          ← Apify worldunboxer/rapid-linkedin-scraper (opérationnel)
-│   │       ├── indeed.ts            ← Apify valig/indeed-jobs-scraper (opérationnel)
-│   │       ├── producthunt.ts       ← Stub désactivé (Cloudflare)
-│   │       └── indiehackers.ts      ← Stub désactivé (SPA)
+│   │       ├── indeed.ts            ← Apify valig/indeed-jobs-scraper, 10 searches EN+FR (opérationnel)
+│   │       ├── producthunt.ts       ← RSS natif https://www.producthunt.com/feed, parser XML custom (opérationnel)
+│   │       ├── capterra.ts          ← Apify dionysus_way/capterra-reviews (DÉSACTIVÉ — 90 signaux collectés)
+│   │       ├── trustpilot.ts        ← Apify happitap/trustpilot-scraper, 10 URLs B2B (opérationnel)
+│   │       └── indiehackers.ts      ← Stub désactivé (SPA non scrappable)
 │   └── ai/
+│       ├── models.ts                ← Constantes modèles OpenAI, tarifs, estimateCost()
+│       ├── openai-client.ts         ← Singleton getOpenAIClient()
+│       ├── prefilter.ts             ← Layer 0 : filtre TypeScript gratuit (source-type routing + keywords)
+│       ├── classifier.ts            ← Layer 1 : gpt-4.1-nano classification
 │       ├── prompts.ts               ← ANALYSIS_SYSTEM_PROMPT + buildAnalysisSystemPrompt(profile)
-│       │                              + MERGE_CHECK_SYSTEM_PROMPT + buildMergeCheckPrompt()
+│       │                              + buildFusedAnalysisPrompt(signal, existingOpps) [inclut source context]
 │       │                              + prompts rapports (category, cross, full)
 │       │                              + buildUserContextBlock(profileSummary)
-│       ├── analyzer.ts              ← analyzeSignals(batchId?, limit?, profile?) — AnalysisResult.quotaReached si 429
-│       └── scoring.ts               ← recalculateOpportunityScore() + computePersonalizedScore()
+│       ├── analyzer.ts              ← Layer 2 : analyzeSignals(batchId?, limit?, profile?), merge check top 50
+│       └── scoring.ts               ← recalculateOpportunityScore() V2 (quality-first + log bonus) + computePersonalizedScore()
 │
 ├── components/
 │   ├── Navigation.tsx               ← Sidebar principale (liens + icônes)
@@ -202,7 +237,8 @@ Colonnes IA (migration 002) : `opportunity_type` (saas/ai_agent_service/ai_agent
 |----------|------|
 | `NEXT_PUBLIC_SUPABASE_URL` | ✅ |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ |
-| `GEMINI_API_KEY` | ✅ — modèle : `gemini-2.5-flash` |
+| `OPENAI_API_KEY` | ✅ — pipeline principal (gpt-4.1-nano, gpt-5-mini, gpt-5) |
+| `GEMINI_API_KEY` | ✅ — uniquement `/api/user/profile/summary` (résumé profil) |
 | `APIFY_API_TOKEN` | ✅ |
 | `FRANCE_TRAVAIL_CLIENT_ID` | ✅ |
 | `FRANCE_TRAVAIL_CLIENT_SECRET` | ✅ |
@@ -227,6 +263,18 @@ Colonnes IA (migration 002) : `opportunity_type` (saas/ai_agent_service/ai_agent
 ---
 
 ## ⚠️ Pièges connus
+
+### 0. Capterra — format startUrls CRITIQUE
+L'actor Apify `dionysus_way/capterra-reviews` attend `startUrls: ["https://..."]` (tableau de **strings simples**).
+Passer `startUrls: [{ url: "https://..." }]` (tableau d'objets) retourne HTTP 400 "startUrls.0 must be string".
+Les URLs doivent pointer directement vers une page produit Capterra (pas une page de recherche).
+
+### 0b. Capterra — champs de sortie réels
+Les noms de champs dans la réponse de l'actor sont différents de ce qu'on pourrait attendre :
+- `comments` (pas `content`) — texte principal de la review
+- `date` (pas `date_posted`) — date de publication
+- `reviewUrl` (pas `review_url`) — URL de la review
+- `productUrl` — URL du produit (permet d'extraire le nom via `extractProductName()`)
 
 ### 1. Gemini — modèles disponibles (free tier)
 - `gemini-2.5-flash` → ✅ OK (modèle en production)
@@ -292,9 +340,17 @@ Pas d'auth Supabase. L'UUID utilisateur est généré à la 1ère visite, stock�
 
 ## 📋 Ce qui reste à faire
 
-### Rapport catégorie — Optimisation signaux
-- Actuellement : 30 signaux × 200 chars passés à Gemini sur 100 fetched
-- Amélioration : sampling diversifié (max 12 par source) → 50 signaux × 150 chars, couverture +67%
+### Premier run complet avec la nouvelle stratégie
+- Optionnel mais recommandé : reset BDD avant le run (signaux anciens = bulle tech, scores corrompus)
+  ```sql
+  TRUNCATE TABLE opportunity_signals CASCADE;
+  TRUNCATE TABLE raw_signals CASCADE;
+  TRUNCATE TABLE opportunities CASCADE;
+  TRUNCATE TABLE collections_history CASCADE;
+  ```
+- Lancer `POST /api/scraping/run` sans body pour un run global
+- Vérifier diversité sectorielle dans les opportunités (comptabilité, RH, logistique, immobilier…)
+- Réactiver Capterra (`enabled: true` dans registry.ts) au prochain run planifié
 
 ### Scoring personnalisé — Affichage dans le Dashboard
 - `computePersonalizedScore()` existe dans `scoring.ts` mais n'est pas encore appelé dans le Dashboard

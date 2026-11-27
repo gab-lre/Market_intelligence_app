@@ -1,6 +1,7 @@
 import type OpenAI from 'openai'
 import { supabase } from '@/lib/supabase'
 import { MODELS, estimateCost } from './models'
+import { safeParseAIResponse } from './utils'
 import type { RawSignal } from '@/types/database'
 
 export interface ClassifierResult {
@@ -51,7 +52,7 @@ export async function classifySignals(
       totalOutput += response.usage?.completion_tokens ?? 0
 
       const raw = response.choices[0]?.message?.content ?? '{}'
-      const parsed: ClassifyResponse = JSON.parse(raw)
+      const parsed: ClassifyResponse = safeParseAIResponse<ClassifyResponse>(raw, signal.id)
       isOpportunity = parsed.is_opportunity !== false // si le champ est absent → true
     } catch (err) {
       // En cas d'erreur (réseau, parse JSON) : on laisse passer le signal

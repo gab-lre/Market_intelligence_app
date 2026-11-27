@@ -18,7 +18,8 @@ export default function SourceStartButton({ sourceNames, label, disabled }: Sour
     if (disabled || state === 'loading' || sourceNames.length === 0) return
     setState('loading')
     try {
-      const res = await fetch('/api/scraping/collect', {
+      // /run = collect + analyse IA (pas /collect qui ne fait que la collecte sans analyse)
+      const res = await fetch('/api/scraping/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sources: sourceNames.map(s => ({ source: s })) }),
@@ -36,9 +37,9 @@ export default function SourceStartButton({ sourceNames, label, disabled }: Sour
     return (
       <button
         disabled
-        className="w-full flex items-center justify-center gap-2 py-3.5 bg-white border border-slate-100 text-slate-300 text-xs font-black uppercase tracking-widest rounded-none cursor-not-allowed"
+        className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-white border border-[#F0F2F4] text-slate-300 text-[10px] font-black uppercase tracking-widest rounded-[16px] cursor-not-allowed"
       >
-        <PlayCircle className="w-4 h-4" />
+        <PlayCircle className="w-3.5 h-3.5" />
         Non disponible
       </button>
     )
@@ -48,15 +49,15 @@ export default function SourceStartButton({ sourceNames, label, disabled }: Sour
     <button
       onClick={handleClick}
       disabled={state === 'loading'}
-      className={`flex items-center justify-center gap-2 py-2.5 px-6 bg-slate-50 border border-slate-200 text-[10px] font-black uppercase tracking-widest rounded-none transition shadow-sm disabled:cursor-not-allowed
-        ${state === 'success' ? 'border-[#00b4d8] text-[#00b4d8]' :
-          state === 'error' ? 'border-rose-400 text-rose-500' :
-          'text-slate-600 hover:bg-[#2b3652] hover:text-white hover:border-[#2b3652]'}`}
+      className={`flex items-center justify-center gap-2 py-2 px-4 text-[10px] font-black uppercase tracking-widest rounded-[16px] transition-all disabled:cursor-not-allowed
+        ${state === 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-600' :
+          state === 'error' ? 'bg-rose-50 border border-rose-200 text-rose-600' :
+          'bg-[#1A1C1E] border border-[#1A1C1E] text-white hover:bg-black hover:border-black shadow-[0_4px_20px_rgba(0,0,0,0.08)]'}`}
     >
       {state === 'loading' ? (
-        <Loader2 className="w-4 h-4 animate-spin" />
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
       ) : (
-        <PlayCircle className="w-4 h-4" />
+        <PlayCircle className="w-3.5 h-3.5" />
       )}
       {state === 'loading' ? 'En cours...' : state === 'success' ? 'Terminé' : state === 'error' ? 'Erreur' : (label || 'Démarrer')}
     </button>

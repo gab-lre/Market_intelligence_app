@@ -26,8 +26,8 @@ export async function POST(request: Request) {
     // Étape 1 — Collecte (keywords/locations/tags personnalisés selon profil)
     const collectResult = await runScrapingEngine(sources, profile)
 
-    // Étape 2 — Analyse IA (prompt Gemini personnalisé selon profil)
-    const analysisResult = await analyzeSignals(collectResult.batchId, 200, profile)
+    // Étape 2 — Analyse IA — limité à 100 signaux par run pour éviter les timeouts
+    const analysisResult = await analyzeSignals(collectResult.batchId, 100, profile)
 
     // Étape 3 — Recalcul des scores
     for (const opportunityId of analysisResult.opportunityIds) {

@@ -7,17 +7,6 @@ import type { Scraper, RawSignalInput } from '../types'
 
 const DEFAULT_ACTOR_ID = 'valig/indeed-jobs-scraper'
 
-const DEFAULT_KEYWORDS = [
-  'CRM manager',
-  'data entry',
-  'reporting analyst',
-  'process automation',
-  'operations coordinator',
-  'marketing automation',
-  'customer success',
-  'sales ops',
-]
-
 // Indeed supporte des codes pays ou des localisations textuelles
 const DEFAULT_SEARCHES: Array<{ keyword: string; location: string; country: string }> = [
   { keyword: 'process automation', location: 'France', country: 'fr' },
@@ -99,12 +88,8 @@ export class IndeedScraper implements Scraper {
     const maxResults = (params.maxResults as number) ?? DEFAULT_MAX_RESULTS
     const actorId = (params.actorId as string) ?? DEFAULT_ACTOR_ID
 
-    // Construire les recherches — on limite à 3 combinaisons pour économiser les crédits
     const rawSearches = (params.searches as typeof DEFAULT_SEARCHES) ?? DEFAULT_SEARCHES
-    const searches = rawSearches.slice(0, 3)
-
-    // Si des keywords sont passés en override, on les intègre
-    const keywords = (params.keywords as string[]) ?? DEFAULT_KEYWORDS
+    const searches = rawSearches.slice(0, 10)
 
     const signals: RawSignalInput[] = []
     const seenIds = new Set<string>()

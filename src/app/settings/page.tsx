@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Check, Loader2, Sparkles, RefreshCw, Save } from 'lucide-react'
+import { Check, Loader2, Sparkles, RefreshCw, Save, UserCircle, ChevronRight } from 'lucide-react'
 
-// ============================================
+// ──────────────────────────────────────────────
 // Types
-// ============================================
+// ──────────────────────────────────────────────
 
 type ProfileDraft = {
   entrepreneurial_stage?: string
@@ -29,36 +29,32 @@ type ProfileDraft = {
   report_tone?: string
 }
 
-// ============================================
-// UI composants réutilisables
-// ============================================
+// ──────────────────────────────────────────────
+// Reusable sub-components
+// ──────────────────────────────────────────────
 
 function OptionCard({
   label, description, selected, onClick, icon
 }: {
-  label: string
-  description?: string
-  selected: boolean
-  onClick: () => void
-  icon?: string
+  label: string; description?: string; selected: boolean; onClick: () => void; icon?: string
 }) {
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left p-5 border-2 transition-all ${
+      className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
         selected
-          ? 'border-[#00b4d8] bg-[#00b4d8]/5'
-          : 'border-slate-200 bg-white hover:border-slate-300'
+          ? 'border-[#257b57] bg-[#E6F4EA]'
+          : 'border-[#F0F2F4] bg-[#FAFBFC] hover:border-[#E0E0E0] hover:bg-white'
       }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          {icon && <span className="text-xl mb-2 block">{icon}</span>}
-          <p className={`font-bold text-sm ${selected ? 'text-[#2b3652]' : 'text-slate-700'}`}>{label}</p>
-          {description && <p className="text-xs text-slate-500 mt-1 font-medium">{description}</p>}
+          {icon && <span className="text-lg mb-1.5 block">{icon}</span>}
+          <p className={`font-bold text-[13px] ${selected ? 'text-[#1A1C1E]' : 'text-[#707478]'}`}>{label}</p>
+          {description && <p className="text-[11px] text-[#A0A4A8] mt-0.5 font-medium leading-snug">{description}</p>}
         </div>
         {selected && (
-          <div className="w-5 h-5 bg-[#00b4d8] flex items-center justify-center shrink-0 mt-0.5">
+          <div className="w-5 h-5 bg-[#257b57] rounded-full flex items-center justify-center shrink-0 mt-0.5">
             <Check className="w-3 h-3 text-white" />
           </div>
         )}
@@ -71,10 +67,10 @@ function TagButton({ label, selected, onClick }: { label: string; selected: bool
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2 text-xs font-bold uppercase tracking-widest border transition-all ${
+      className={`px-3.5 py-1.5 text-[12px] font-bold rounded-xl border transition-all ${
         selected
-          ? 'bg-[#2b3652] text-white border-[#2b3652]'
-          : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-700'
+          ? 'bg-[#1A1C1E] text-white border-[#1A1C1E]'
+          : 'bg-white text-[#707478] border-[#E0E0E0] hover:border-[#1A1C1E] hover:text-[#1A1C1E]'
       }`}
     >
       {label}
@@ -82,21 +78,36 @@ function TagButton({ label, selected, onClick }: { label: string; selected: bool
   )
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SectionCard({ title, subtitle, icon, children }: {
+  title: string; subtitle?: string; icon?: React.ReactNode; children: React.ReactNode
+}) {
   return (
-    <h2 className="text-lg font-black text-[#2b3652] mb-6 pb-3 border-b border-slate-100">{children}</h2>
+    <div className="bg-white rounded-[24px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#F4F6F8]">
+        {icon && (
+          <div className="w-9 h-9 rounded-xl bg-[#F4F6F8] flex items-center justify-center shrink-0">
+            {icon}
+          </div>
+        )}
+        <div>
+          <h2 className="font-black text-[#1A1C1E] text-[15px]">{title}</h2>
+          {subtitle && <p className="text-[11px] text-[#707478] font-medium mt-0.5">{subtitle}</p>}
+        </div>
+      </div>
+      {children}
+    </div>
   )
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">{children}</p>
+    <p className="text-[10px] font-black uppercase tracking-widest text-[#A0A4A8] mb-2.5">{children}</p>
   )
 }
 
-// ============================================
-// Page Settings
-// ============================================
+// ──────────────────────────────────────────────
+// Page
+// ──────────────────────────────────────────────
 
 export default function SettingsPage() {
   const [userId, setUserId] = useState<string | null>(null)
@@ -112,7 +123,6 @@ export default function SettingsPage() {
       const id = localStorage.getItem('mi_user_id')
       if (!id) { setInitialized(true); return }
       setUserId(id)
-
       const res = await fetch(`/api/user/profile?userId=${id}`)
       const data = await res.json()
       if (data.profile) {
@@ -175,13 +185,11 @@ export default function SettingsPage() {
     if (!userId) return
     setRegenerating(true)
     try {
-      // Sauvegarder d'abord le profil courant
       await fetch('/api/user/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, ...draft }),
       })
-      // Puis régénérer le résumé
       const res = await fetch('/api/user/profile/summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -196,71 +204,91 @@ export default function SettingsPage() {
 
   if (!initialized) {
     return (
-      <div className="flex items-center justify-center py-32">
-        <Loader2 className="w-8 h-8 animate-spin text-[#00b4d8]" />
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 animate-spin text-[#257b57]" />
       </div>
     )
   }
 
   if (!userId) {
     return (
-      <div className="max-w-2xl mx-auto py-20 text-center">
-        <p className="text-slate-500 font-medium">Aucun profil trouvé. Complétez d'abord l'onboarding.</p>
+      <div className="flex flex-col items-center justify-center h-full gap-3">
+        <UserCircle className="w-12 h-12 text-[#D0D4D8]" strokeWidth={1.5} />
+        <p className="text-[#707478] font-medium text-sm">Aucun profil trouvé. Complétez d'abord l'onboarding.</p>
       </div>
     )
   }
 
   return (
-    <div className="max-w-[900px] mx-auto pb-20">
+    <div className="flex flex-col gap-4 h-full min-h-0 pl-4">
 
-      {/* Header */}
-      <div className="mb-10">
-        <span className="text-[10px] font-black uppercase tracking-widest text-[#00b4d8] mb-2 block">
-          Paramètres
-        </span>
-        <h1 className="text-3xl font-black text-[#2b3652] tracking-tight">Mon profil</h1>
-        <p className="text-slate-500 font-medium text-sm mt-2">
-          Ces informations personnalisent toutes les analyses et rapports générés par l'IA.
-        </p>
+      {/* ─── Header ─── */}
+      <div className="flex items-center justify-between shrink-0">
+        <div>
+          <h1 className="text-[22px] font-black text-[#1A1C1E] tracking-tight">Mon Profil</h1>
+          <p className="text-[13px] text-[#707478] font-medium mt-0.5">Ces informations personnalisent vos analyses et rapports IA.</p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all shadow-sm disabled:opacity-60 ${
+            saveSuccess
+              ? 'bg-[#E6F4EA] text-[#257b57] border border-[#257b57]/20'
+              : 'bg-[#1A1C1E] text-white hover:bg-black'
+          }`}
+        >
+          {saving ? (
+            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sauvegarde...</>
+          ) : saveSuccess ? (
+            <><Check className="w-3.5 h-3.5" /> Sauvegardé</>
+          ) : (
+            <><Save className="w-3.5 h-3.5" /> Sauvegarder</>
+          )}
+        </button>
       </div>
 
-      {/* Résumé IA */}
-      {profileSummary && (
-        <div className="bg-[#2b3652] p-8 mb-10 relative">
-          <div className="absolute -top-3 left-6 bg-[#00b4d8] px-3 py-1">
-            <span className="text-[9px] font-black uppercase tracking-widest text-white">Profil IA</span>
-          </div>
-          <div className="flex items-start gap-4">
-            <Sparkles className="w-5 h-5 text-[#00b4d8] shrink-0 mt-0.5" />
-            <p className="text-white/80 font-medium leading-relaxed text-sm italic flex-1">"{profileSummary}"</p>
-          </div>
-          <div className="mt-5 flex justify-end">
-            <button
-              onClick={handleRegenerate}
-              disabled={regenerating}
-              className="flex items-center gap-2 px-5 py-2.5 border border-white/20 text-white/70 text-xs font-bold uppercase tracking-widest hover:border-white/40 hover:text-white transition disabled:opacity-40"
-            >
-              {regenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Régénérer
-            </button>
-          </div>
-        </div>
-      )}
+      {/* ─── Content ─── */}
+      <div className="flex-1 overflow-y-auto plugin-noscrollbar space-y-4 pb-4">
 
-      <div className="space-y-8">
+        {/* AI Profile Summary */}
+        {profileSummary && (
+          <div className="bg-[#1A1C1E] rounded-[24px] p-6 relative overflow-hidden">
+            <div className="absolute -right-8 -top-8 w-32 h-32 bg-[#257b57] opacity-10 rounded-full blur-2xl" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="w-4 h-4 text-[#257b57]" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#257b57]">Résumé IA de ton profil</span>
+              </div>
+              <p className="text-white/70 text-[13px] font-medium leading-relaxed italic">"{profileSummary}"</p>
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={handleRegenerate}
+                  disabled={regenerating}
+                  className="flex items-center gap-2 px-4 py-2 border border-white/20 text-white/60 text-[11px] font-bold rounded-xl hover:border-white/40 hover:text-white transition-all disabled:opacity-40"
+                >
+                  {regenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                  Régénérer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
-        {/* BLOC 1 — Profil entrepreneurial */}
-        <div className="bg-white border border-slate-200 p-8">
-          <SectionTitle>Profil entrepreneurial</SectionTitle>
-          <div className="space-y-8">
+        {/* Section 1 — Profil Entrepreneurial */}
+        <SectionCard
+          title="Profil Entrepreneurial"
+          subtitle="Votre stade de développement et vos motivations"
+          icon={<ChevronRight className="w-4 h-4 text-[#707478]" />}
+        >
+          <div className="space-y-6">
             <div>
               <FieldLabel>Où en êtes-vous dans votre démarche ?</FieldLabel>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  { val: 'exploration', label: "J'explore des idées", desc: "Pas encore de direction claire", icon: "🔍" },
-                  { val: 'validation', label: "Je valide une idée", desc: "J'ai une piste et je la teste", icon: "🧪" },
-                  { val: 'building', label: "Je construis", desc: "Je développe activement", icon: "🏗️" },
-                  { val: 'launched', label: "Déjà lancé", desc: "Mon produit est en vie", icon: "🚀" },
+                  { val: 'exploration', label: "J'explore des idées",  desc: "Pas encore de direction claire", icon: "🔍" },
+                  { val: 'validation',  label: "Je valide une idée",    desc: "J'ai une piste et je la teste", icon: "🧪" },
+                  { val: 'building',    label: "Je construis",          desc: "Je développe activement",       icon: "🏗️" },
+                  { val: 'launched',    label: "Déjà lancé",            desc: "Mon produit est en vie",         icon: "🚀" },
                 ].map(o => (
                   <OptionCard key={o.val} label={o.label} description={o.desc} icon={o.icon}
                     selected={draft.entrepreneurial_stage === o.val}
@@ -274,11 +302,11 @@ export default function SettingsPage() {
               <div className="flex flex-wrap gap-2">
                 {[
                   { val: 'financial_freedom', label: 'Liberté financière' },
-                  { val: 'passion', label: 'Passion technique' },
-                  { val: 'reconversion', label: 'Reconversion' },
-                  { val: 'impact', label: 'Impact positif' },
-                  { val: 'autonomy', label: 'Autonomie' },
-                  { val: 'revenue', label: 'Revenu complémentaire' },
+                  { val: 'passion',           label: 'Passion technique' },
+                  { val: 'reconversion',      label: 'Reconversion' },
+                  { val: 'impact',            label: 'Impact positif' },
+                  { val: 'autonomy',          label: 'Autonomie' },
+                  { val: 'revenue',           label: 'Revenu complémentaire' },
                 ].map(o => (
                   <TagButton key={o.val} label={o.label}
                     selected={(draft.main_motivation ?? []).includes(o.val)}
@@ -289,11 +317,11 @@ export default function SettingsPage() {
 
             <div>
               <FieldLabel>Horizon de temps pour rentabilité</FieldLabel>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {[
-                  { val: 'short', label: '< 6 mois', desc: 'Je veux des revenus rapidement' },
-                  { val: 'medium', label: '6 à 24 mois', desc: 'Je peux investir du temps' },
-                  { val: 'long', label: '+ de 2 ans', desc: 'Je joue sur le long terme' },
+                  { val: 'short',  label: '< 6 mois',      desc: 'Je veux des revenus rapidement' },
+                  { val: 'medium', label: '6 à 24 mois',   desc: 'Je peux investir du temps' },
+                  { val: 'long',   label: '+ de 2 ans',    desc: 'Je joue sur le long terme' },
                 ].map(o => (
                   <OptionCard key={o.val} label={o.label} description={o.desc}
                     selected={draft.time_horizon === o.val}
@@ -304,7 +332,7 @@ export default function SettingsPage() {
 
             <div>
               <FieldLabel>Expérience entrepreneuriale</FieldLabel>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <OptionCard label="Première fois" description="Je n'ai jamais lancé de projet"
                   selected={draft.prior_experience === false}
                   onClick={() => update({ prior_experience: false })} />
@@ -314,20 +342,23 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-        </div>
+        </SectionCard>
 
-        {/* BLOC 2 — Compétences */}
-        <div className="bg-white border border-slate-200 p-8">
-          <SectionTitle>Compétences</SectionTitle>
-          <div className="space-y-8">
+        {/* Section 2 — Compétences */}
+        <SectionCard
+          title="Compétences"
+          subtitle="Votre niveau technique et vos forces complémentaires"
+          icon={<ChevronRight className="w-4 h-4 text-[#707478]" />}
+        >
+          <div className="space-y-6">
             <div>
               <FieldLabel>Niveau technique</FieldLabel>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  { val: 'non_tech', label: 'Non-technique', desc: 'Je ne code pas du tout', icon: '👤' },
-                  { val: 'low_code', label: 'Low-code / No-code', desc: 'Bubble, Webflow, Make...', icon: '🧩' },
-                  { val: 'junior_dev', label: 'Développeur junior', desc: 'Je code mais j\'apprends encore', icon: '💻' },
-                  { val: 'senior_dev', label: 'Développeur confirmé', desc: 'Je maîtrise plusieurs stacks', icon: '⚡' },
+                  { val: 'non_tech',   label: 'Non-technique',         desc: 'Je ne code pas du tout',          icon: '👤' },
+                  { val: 'low_code',   label: 'Low-code / No-code',    desc: 'Bubble, Webflow, Make...',         icon: '🧩' },
+                  { val: 'junior_dev', label: 'Développeur junior',    desc: "Je code mais j'apprends encore",  icon: '💻' },
+                  { val: 'senior_dev', label: 'Développeur confirmé',  desc: 'Je maîtrise plusieurs stacks',    icon: '⚡' },
                 ].map(o => (
                   <OptionCard key={o.val} label={o.label} description={o.desc} icon={o.icon}
                     selected={draft.tech_level === o.val}
@@ -340,14 +371,10 @@ export default function SettingsPage() {
               <FieldLabel>Compétences secondaires</FieldLabel>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { val: 'marketing', label: 'Marketing' },
-                  { val: 'design', label: 'Design' },
-                  { val: 'sales', label: 'Vente' },
-                  { val: 'finance', label: 'Finance' },
-                  { val: 'pm', label: 'Gestion de projet' },
-                  { val: 'writing', label: 'Rédaction' },
-                  { val: 'data', label: 'Data / Analyse' },
-                  { val: 'seo', label: 'SEO' },
+                  { val: 'marketing', label: 'Marketing' }, { val: 'design',  label: 'Design' },
+                  { val: 'sales',     label: 'Vente' },     { val: 'finance', label: 'Finance' },
+                  { val: 'pm',        label: 'Gestion de projet' }, { val: 'writing', label: 'Rédaction' },
+                  { val: 'data',      label: 'Data / Analyse' }, { val: 'seo', label: 'SEO' },
                 ].map(o => (
                   <TagButton key={o.val} label={o.label}
                     selected={(draft.secondary_skills ?? []).includes(o.val)}
@@ -360,10 +387,8 @@ export default function SettingsPage() {
               <FieldLabel>Langues</FieldLabel>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { val: 'fr', label: '🇫🇷 Français' },
-                  { val: 'en', label: '🇬🇧 Anglais' },
-                  { val: 'es', label: '🇪🇸 Espagnol' },
-                  { val: 'de', label: '🇩🇪 Allemand' },
+                  { val: 'fr', label: '🇫🇷 Français' }, { val: 'en', label: '🇬🇧 Anglais' },
+                  { val: 'es', label: '🇪🇸 Espagnol' }, { val: 'de', label: '🇩🇪 Allemand' },
                   { val: 'pt', label: '🇵🇹 Portugais' },
                 ].map(o => (
                   <TagButton key={o.val} label={o.label}
@@ -375,11 +400,11 @@ export default function SettingsPage() {
 
             <div>
               <FieldLabel>Disponibilité</FieldLabel>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {[
                   { val: 'few_hours', label: 'Quelques heures', desc: 'Projet secondaire' },
-                  { val: 'half_time', label: 'Mi-temps', desc: '~20h / semaine' },
-                  { val: 'full_time', label: 'Plein temps', desc: 'Je me consacre à ça' },
+                  { val: 'half_time', label: 'Mi-temps',        desc: '~20h / semaine' },
+                  { val: 'full_time', label: 'Plein temps',     desc: 'Je me consacre à ça' },
                 ].map(o => (
                   <OptionCard key={o.val} label={o.label} description={o.desc}
                     selected={draft.weekly_availability === o.val}
@@ -388,19 +413,22 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-        </div>
+        </SectionCard>
 
-        {/* BLOC 3 — Contexte & contraintes */}
-        <div className="bg-white border border-slate-200 p-8">
-          <SectionTitle>Contexte & contraintes</SectionTitle>
-          <div className="space-y-8">
+        {/* Section 3 — Contexte & Contraintes */}
+        <SectionCard
+          title="Contexte & Contraintes"
+          subtitle="Budget, business model, secteurs préférés"
+          icon={<ChevronRight className="w-4 h-4 text-[#707478]" />}
+        >
+          <div className="space-y-6">
             <div>
               <FieldLabel>Budget disponible</FieldLabel>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {[
-                  { val: 'bootstrapped', label: 'Bootstrapped serré', desc: '< 1 000 €', icon: '🌱' },
-                  { val: 'few_thousands', label: 'Quelques milliers', desc: '1 000 – 10 000 €', icon: '💰' },
-                  { val: 'comfortable', label: 'Budget confortable', desc: '> 10 000 €', icon: '💎' },
+                  { val: 'bootstrapped',   label: 'Bootstrapped serré',  desc: '< 1 000 €',         icon: '🌱' },
+                  { val: 'few_thousands',  label: 'Quelques milliers',   desc: '1 000 – 10 000 €',  icon: '💰' },
+                  { val: 'comfortable',    label: 'Budget confortable',  desc: '> 10 000 €',         icon: '💎' },
                 ].map(o => (
                   <OptionCard key={o.val} label={o.label} description={o.desc} icon={o.icon}
                     selected={draft.budget_range === o.val}
@@ -413,10 +441,8 @@ export default function SettingsPage() {
               <FieldLabel>Modèle business préféré</FieldLabel>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { val: 'b2b', label: 'B2B' },
-                  { val: 'b2c', label: 'B2C' },
-                  { val: 'b2b2c', label: 'B2B2C' },
-                  { val: 'marketplace', label: 'Marketplace' },
+                  { val: 'b2b', label: 'B2B' }, { val: 'b2c', label: 'B2C' },
+                  { val: 'b2b2c', label: 'B2B2C' }, { val: 'marketplace', label: 'Marketplace' },
                   { val: 'indifferent', label: 'Indifférent' },
                 ].map(o => (
                   <TagButton key={o.val} label={o.label}
@@ -430,13 +456,10 @@ export default function SettingsPage() {
               <FieldLabel>Secteurs à éviter</FieldLabel>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { val: 'health', label: 'Santé / Pharma' },
-                  { val: 'finance', label: 'Finance / Banque' },
-                  { val: 'legal', label: 'Légal / Juridique' },
-                  { val: 'insurance', label: 'Assurance' },
-                  { val: 'defense', label: 'Défense' },
-                  { val: 'hr_sensitive', label: 'RH sensible' },
-                  { val: 'real_estate', label: 'Immobilier' },
+                  { val: 'health',       label: 'Santé / Pharma' }, { val: 'finance', label: 'Finance / Banque' },
+                  { val: 'legal',        label: 'Légal / Juridique' }, { val: 'insurance', label: 'Assurance' },
+                  { val: 'defense',      label: 'Défense' }, { val: 'hr_sensitive', label: 'RH sensible' },
+                  { val: 'real_estate',  label: 'Immobilier' },
                 ].map(o => (
                   <TagButton key={o.val} label={o.label}
                     selected={(draft.excluded_sectors ?? []).includes(o.val)}
@@ -446,32 +469,32 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <FieldLabel>Secteurs d'affinité</FieldLabel>
+              <FieldLabel>Secteurs d'affinité (texte libre)</FieldLabel>
               <input
                 type="text"
                 placeholder="Ex : e-commerce, logistique, education..."
                 value={(draft.preferred_sectors ?? []).join(', ')}
                 onChange={e => update({ preferred_sectors: e.target.value ? e.target.value.split(',').map(s => s.trim()) : [] })}
-                className="w-full border border-slate-200 bg-white px-5 py-3.5 text-sm text-slate-700 focus:outline-none focus:border-[#00b4d8] transition"
+                className="w-full bg-[#FAFBFC] border border-[#F0F2F4] rounded-xl px-4 py-3 text-[13px] text-[#1A1C1E] font-medium focus:outline-none focus:border-[#257b57] focus:ring-2 focus:ring-[#257b57]/10 transition-all"
               />
             </div>
           </div>
-        </div>
+        </SectionCard>
 
-        {/* BLOC 4 — Vision produit */}
-        <div className="bg-white border border-slate-200 p-8">
-          <SectionTitle>Vision produit</SectionTitle>
-          <div className="space-y-8">
+        {/* Section 4 — Vision Produit */}
+        <SectionCard
+          title="Vision Produit"
+          subtitle="Type de solution, cible et complexité"
+          icon={<ChevronRight className="w-4 h-4 text-[#707478]" />}
+        >
+          <div className="space-y-6">
             <div>
               <FieldLabel>Type de solution préférée</FieldLabel>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { val: 'productivity', label: 'Outil productivité' },
-                  { val: 'automation', label: 'Automatisation' },
-                  { val: 'platform', label: 'Plateforme' },
-                  { val: 'api', label: 'API / Service' },
-                  { val: 'widget', label: 'Widget / Extension' },
-                  { val: 'template', label: 'Template / Workflow' },
+                  { val: 'productivity', label: 'Outil productivité' }, { val: 'automation', label: 'Automatisation' },
+                  { val: 'platform',     label: 'Plateforme' },          { val: 'api',        label: 'API / Service' },
+                  { val: 'widget',       label: 'Widget / Extension' }, { val: 'template',   label: 'Template / Workflow' },
                 ].map(o => (
                   <TagButton key={o.val} label={o.label}
                     selected={(draft.preferred_solution_types ?? []).includes(o.val)}
@@ -482,12 +505,12 @@ export default function SettingsPage() {
 
             <div>
               <FieldLabel>Cible préférée</FieldLabel>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  { val: 'sme', label: 'TPE / PME', desc: 'Petites et moyennes entreprises', icon: '🏢' },
-                  { val: 'enterprise', label: 'Grandes entreprises', desc: 'Corporate et grands comptes', icon: '🏦' },
-                  { val: 'freelancers', label: 'Indépendants', desc: 'Freelances et solopreneurs', icon: '💼' },
-                  { val: 'consumers', label: 'Consommateurs', desc: 'Grand public (B2C)', icon: '👥' },
+                  { val: 'sme',         label: 'TPE / PME',         desc: 'Petites et moyennes entreprises', icon: '🏢' },
+                  { val: 'enterprise',  label: 'Grandes entreprises', desc: 'Corporate et grands comptes',   icon: '🏦' },
+                  { val: 'freelancers', label: 'Indépendants',       desc: 'Freelances et solopreneurs',    icon: '💼' },
+                  { val: 'consumers',   label: 'Consommateurs',      desc: 'Grand public (B2C)',             icon: '👥' },
                 ].map(o => (
                   <OptionCard key={o.val} label={o.label} description={o.desc} icon={o.icon}
                     selected={draft.preferred_target === o.val}
@@ -498,11 +521,11 @@ export default function SettingsPage() {
 
             <div>
               <FieldLabel>Complexité produit acceptable</FieldLabel>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {[
-                  { val: 'mvp', label: 'MVP simple', desc: 'Lancer vite, itérer ensuite' },
-                  { val: 'elaborate', label: 'Produit élaboré', desc: 'Je vise la qualité dès le départ' },
-                  { val: 'indifferent', label: 'Indifférent', desc: 'Selon l\'opportunité' },
+                  { val: 'mvp',        label: 'MVP simple',     desc: 'Lancer vite, itérer ensuite' },
+                  { val: 'elaborate',  label: 'Produit élaboré', desc: 'Je vise la qualité dès le départ' },
+                  { val: 'indifferent', label: 'Indifférent',   desc: "Selon l'opportunité" },
                 ].map(o => (
                   <OptionCard key={o.val} label={o.label} description={o.desc}
                     selected={draft.product_complexity === o.val}
@@ -511,20 +534,23 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-        </div>
+        </SectionCard>
 
-        {/* BLOC 5 — Marché */}
-        <div className="bg-white border border-slate-200 p-8">
-          <SectionTitle>Marché & géographie</SectionTitle>
-          <div className="space-y-8">
+        {/* Section 5 — Marché & Géographie */}
+        <SectionCard
+          title="Marché & Géographie"
+          subtitle="Votre marché cible et votre connaissance sectorielle"
+          icon={<ChevronRight className="w-4 h-4 text-[#707478]" />}
+        >
+          <div className="space-y-6">
             <div>
               <FieldLabel>Marché prioritaire</FieldLabel>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  { val: 'fr', label: 'France uniquement', desc: 'Je cible le marché français', icon: '🇫🇷' },
-                  { val: 'fr_qc', label: 'Francophone (FR + QC)', desc: 'France et Québec', icon: '🌍' },
-                  { val: 'europe', label: 'Europe', desc: 'Marché européen élargi', icon: '🇪🇺' },
-                  { val: 'international', label: 'International', desc: 'Ambition mondiale', icon: '🌐' },
+                  { val: 'fr',            label: 'France uniquement',        desc: 'Je cible le marché français', icon: '🇫🇷' },
+                  { val: 'fr_qc',         label: 'Francophone (FR + QC)',    desc: 'France et Québec',            icon: '🌍' },
+                  { val: 'europe',        label: 'Europe',                   desc: 'Marché européen élargi',      icon: '🇪🇺' },
+                  { val: 'international', label: 'International',            desc: 'Ambition mondiale',           icon: '🌐' },
                 ].map(o => (
                   <OptionCard key={o.val} label={o.label} description={o.desc} icon={o.icon}
                     selected={draft.priority_market === o.val}
@@ -539,24 +565,27 @@ export default function SettingsPage() {
                 placeholder="Ex : J'ai travaillé 5 ans dans la logistique e-commerce..."
                 value={draft.existing_sector_knowledge ?? ''}
                 onChange={e => update({ existing_sector_knowledge: e.target.value })}
-                rows={4}
-                className="w-full border border-slate-200 bg-white px-5 py-3.5 text-sm text-slate-700 focus:outline-none focus:border-[#00b4d8] transition resize-none"
+                rows={3}
+                className="w-full bg-[#FAFBFC] border border-[#F0F2F4] rounded-xl px-4 py-3 text-[13px] text-[#1A1C1E] font-medium focus:outline-none focus:border-[#257b57] focus:ring-2 focus:ring-[#257b57]/10 transition-all resize-none"
               />
             </div>
           </div>
-        </div>
+        </SectionCard>
 
-        {/* BLOC 6 — Préférences rapport */}
-        <div className="bg-white border border-slate-200 p-8">
-          <SectionTitle>Préférences de rapport</SectionTitle>
-          <div className="space-y-8">
+        {/* Section 6 — Préférences Rapports */}
+        <SectionCard
+          title="Préférences de Rapports"
+          subtitle="Niveau de détail et ton de vos rapports IA"
+          icon={<ChevronRight className="w-4 h-4 text-[#707478]" />}
+        >
+          <div className="space-y-6">
             <div>
               <FieldLabel>Niveau de détail souhaité</FieldLabel>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {[
-                  { val: 'executive', label: 'Résumé exécutif', desc: 'Les points clés, sans détails superflus' },
-                  { val: 'full', label: 'Analyse complète', desc: 'Tout le contexte et les nuances' },
-                  { val: 'both', label: 'Les deux', desc: 'Résumé puis analyse détaillée' },
+                  { val: 'executive', label: 'Résumé exécutif',  desc: 'Les points clés, sans détails superflus' },
+                  { val: 'full',      label: 'Analyse complète', desc: 'Tout le contexte et les nuances' },
+                  { val: 'both',      label: 'Les deux',         desc: 'Résumé puis analyse détaillée' },
                 ].map(o => (
                   <OptionCard key={o.val} label={o.label} description={o.desc}
                     selected={draft.report_detail_level === o.val}
@@ -567,11 +596,11 @@ export default function SettingsPage() {
 
             <div>
               <FieldLabel>Ton préféré</FieldLabel>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {[
-                  { val: 'analytical', label: 'Analytique', desc: 'Chiffré, factuel, comparatif', icon: '📊' },
-                  { val: 'narrative', label: 'Narratif', desc: 'Storytelling, contexte stratégique', icon: '📖' },
-                  { val: 'actionable', label: 'Actionnable', desc: 'Recommandations concrètes', icon: '⚡' },
+                  { val: 'analytical',  label: 'Analytique',  desc: 'Chiffré, factuel, comparatif',       icon: '📊' },
+                  { val: 'narrative',   label: 'Narratif',    desc: 'Storytelling, contexte stratégique', icon: '📖' },
+                  { val: 'actionable',  label: 'Actionnable', desc: 'Recommandations concrètes',          icon: '⚡' },
                 ].map(o => (
                   <OptionCard key={o.val} label={o.label} description={o.desc} icon={o.icon}
                     selected={draft.report_tone === o.val}
@@ -580,31 +609,9 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-        </div>
+        </SectionCard>
 
       </div>
-
-      {/* Bouton Sauvegarder */}
-      <div className="mt-10 flex items-center justify-between bg-white border border-slate-200 p-6">
-        <div>
-          <p className="text-sm font-bold text-slate-700">Sauvegarder les modifications</p>
-          <p className="text-xs text-slate-400 font-medium mt-0.5">Les prochains rapports générés utiliseront ce profil mis à jour.</p>
-        </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-3 bg-[#2b3652] text-white px-8 py-4 font-black uppercase tracking-widest text-xs hover:bg-[#1e2840] transition disabled:opacity-50"
-        >
-          {saving ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Sauvegarde...</>
-          ) : saveSuccess ? (
-            <><Check className="w-4 h-4" /> Sauvegardé</>
-          ) : (
-            <><Save className="w-4 h-4" /> Sauvegarder</>
-          )}
-        </button>
-      </div>
-
     </div>
   )
 }

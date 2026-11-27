@@ -17,7 +17,10 @@ export async function POST(request: Request) {
     if (text.trim()) {
       const body = JSON.parse(text)
       if (Array.isArray(body.sources)) {
-        sources = body.sources
+        // Accepte les deux formats : ["source"] ou [{source: "...", params: {...}}]
+        sources = body.sources.map((s: string | SourceRequest) =>
+          typeof s === 'string' ? { source: s } : s
+        )
       }
     }
 

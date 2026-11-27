@@ -1,8 +1,8 @@
 import type { Scraper, RawSignalInput } from '../types'
 
 const DEFAULT_PARAMS = {
-  maxResults: 20,
-  tags: ['saas', 'startup', 'webdev', 'indiehackers'],
+  maxResults: 40,
+  tags: ['saas', 'startup', 'webdev', 'indiehackers', 'productivity', 'devops', 'tools', 'automation', 'api', 'nocode'],
 }
 
 interface DevToArticle {
@@ -45,14 +45,22 @@ export const DevToScraper: Scraper = {
     const maxResults = (params.maxResults as number) ?? DEFAULT_PARAMS.maxResults
     const tags = (params.tags as string[]) ?? DEFAULT_PARAMS.tags
 
+    // Quota par tag pour garantir que tous les tags s'exécutent
+    const perTag = Math.ceil(maxResults / tags.length)
+
+    // Filtre fraîcheur : articles des 30 derniers jours
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
     const signals: RawSignalInput[] = []
     const seenIds = new Set<string>()
 
     try {
       for (const tag of tags) {
-        if (signals.length >= maxResults) break
+        let tagCount = 0
 
-        const res = await fetch(`https://dev.to/api/articles?tag=${encodeURIComponent(tag)}&per_page=30`)
+        const res = await fetch(
+          `https://dev.to/api/articles?tag=${encodeURIComponent(tag)}&per_page=50&published_after=${thirtyDaysAgo}`
+        )
         if (!res.ok) {
           console.error(`[Dev.to] Erreur API pour le tag "${tag}":`, res.statusText)
           continue
@@ -61,18 +69,19 @@ export const DevToScraper: Scraper = {
         const articles = await res.json() as DevToArticle[]
 
         for (const article of articles) {
-          if (signals.length >= maxResults) break
+          if (tagCount >= perTag) break
           if (seenIds.has(String(article.id))) continue
 
           seenIds.add(String(article.id))
           signals.push(mapToSignal(article))
+          tagCount++
         }
       }
     } catch (err) {
       console.error('[Dev.to] Erreur fetch —', (err as Error).message)
     }
 
-    console.log(`[Dev.to] ${signals.length} signaux collectés`)
+    console.log(`[Dev.to] ${signals.length} signaux collectés sur ${tags.length} tags (30 derniers jours)`)
     return signals
   },
 }

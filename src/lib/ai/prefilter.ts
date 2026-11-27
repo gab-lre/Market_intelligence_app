@@ -27,15 +27,56 @@ function hasSaasKeyword(text: string): boolean {
   return SAAS_KEYWORDS.some((kw) => lower.includes(kw))
 }
 
+// Sources review et job : le contenu décrit des produits/offres existants,
+// pas des solutions SaaS — le filtre no_saas_relevance ne s'applique pas.
+const REVIEW_SOURCES = new Set(['g2', 'capterra', 'trustpilot'])
+const JOB_SOURCES = new Set(['francetravail', 'indeed', 'linkedin', 'wellfound', 'upwork'])
+
+// Pour les reviews : filtrer uniquement les reviews trop positives (aucune friction visible)
+const FRICTION_KEYWORDS = [
+  // Anglais
+  'wish', 'missing', 'lack', 'lacks', 'difficult', 'hard to', 'confusing', 'complicated',
+  'no way to', 'cannot', "can't", 'unable', 'limited', 'limitation', 'workaround',
+  'manually', 'manual', 'spreadsheet', 'excel', 'export to', 'import from',
+  'no integration', 'no api', 'slow', 'expensive', 'overpriced', 'switched from',
+  'switched to', 'replaced', 'looking for', 'alternative', 'frustrat', 'annoying',
+  'cons:', 'why they switched', 'downside', 'drawback',
+  // Français
+  'manque', 'manquant', 'difficile', 'compliqué', 'impossible', 'pas possible',
+  'manuellement', 'tableau', 'export', 'intégration', 'lent', 'cher', 'migré',
+]
+
+function hasFrictionKeyword(text: string): boolean {
+  const lower = text.toLowerCase()
+  return FRICTION_KEYWORDS.some((kw) => lower.includes(kw))
+}
+
 function getDiscardReason(signal: RawSignal): string | null {
   const content = (signal.content ?? '').trim()
   const title = (signal.title ?? '').trim()
   const metadata = signal.metadata ?? {}
 
-  // Contenu trop court
+  // Contenu trop court (universel)
   if (content.length < 50) return 'content_too_short'
 
-  // Pas de mot-clé SaaS
+  // Sources review : bypass du filtre SaaS, mais rejeter les reviews 5★ sans friction
+  if (REVIEW_SOURCES.has(signal.source)) {
+    const rating = metadata.rating as number | undefined
+    // Review 5 étoiles sans aucun mot de friction → peu utile pour détecter un pain point
+    if (rating === 5 && !hasFrictionKeyword(title + ' ' + content)) {
+      return 'positive_review_no_friction'
+    }
+    return null
+  }
+
+  // Sources job : bypass du filtre SaaS — les offres d'emploi décrivent des rôles manuels
+  if (JOB_SOURCES.has(signal.source)) {
+    // Rejeter les offres sans description suffisante
+    if (content.length < 100) return 'content_too_short'
+    return null
+  }
+
+  // Sources community (reddit, hackernews, devto, producthunt, indiehackers) : filtre SaaS actif
   if (!hasSaasKeyword(title + ' ' + content)) return 'no_saas_relevance'
 
   // HN : score trop faible

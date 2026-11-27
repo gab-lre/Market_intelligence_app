@@ -15,19 +15,19 @@ const CATEGORIES: { key: CategoryKey; label: string; desc: string; icon: React.R
     key: 'job',
     label: 'Emplois & Missions Freelance',
     desc: 'LinkedIn, Indeed, Upwork, Malt, France Travail',
-    icon: <Briefcase className="w-5 h-5 text-[#00b4d8]" />,
+    icon: <Briefcase className="w-5 h-5 text-[#257b57]" />,
   },
   {
     key: 'community',
     label: 'Communautés & Insights',
     desc: 'Dev.to, Reddit, Hacker News, G2',
-    icon: <Users className="w-5 h-5 text-[#00b4d8]" />,
+    icon: <Users className="w-5 h-5 text-[#257b57]" />,
   },
   {
     key: 'startup',
     label: 'Écosystème Startups',
     desc: 'Wellfound, Product Hunt, Indie Hackers',
-    icon: <Rocket className="w-5 h-5 text-[#00b4d8]" />,
+    icon: <Rocket className="w-5 h-5 text-[#257b57]" />,
   },
 ]
 
@@ -42,19 +42,19 @@ const REPORT_TYPES: {
     key: 'category',
     label: 'Rapport par catégorie',
     desc: 'Analyse approfondie d\'une seule catégorie de sources. 1 appel Gemini.',
-    icon: <BarChart2 className="w-6 h-6 text-[#00b4d8]" />,
+    icon: <BarChart2 className="w-6 h-6 text-[#257b57]" />,
   },
   {
     key: 'cross',
     label: 'Rapport croisé',
     desc: 'Convergences et divergences entre 2 ou 3 catégories de sources.',
-    icon: <Layers className="w-6 h-6 text-[#00b4d8]" />,
+    icon: <Layers className="w-6 h-6 text-[#257b57]" />,
   },
   {
     key: 'full',
     label: 'Rapport complet',
     desc: 'Rapport exhaustif sur toutes les sources. 6 sections structurées.',
-    icon: <Globe className="w-6 h-6 text-[#00b4d8]" />,
+    icon: <Globe className="w-6 h-6 text-[#257b57]" />,
     tag: 'Premium',
   },
 ]
@@ -137,7 +137,6 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
   const handleTypeSelect = (type: ReportType) => {
     setReportType(type)
     if (type === 'full') {
-      // Skip category selection for full report
       setStep(2)
     } else {
       setStep(2)
@@ -178,6 +177,7 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
         if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue')
         onClose()
         router.push(`/reports/category/${data.reportId}`)
+        router.refresh()
       } else if (reportType === 'cross') {
         res = await fetch('/api/reports/cross', {
           method: 'POST',
@@ -188,6 +188,7 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
         if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue')
         onClose()
         router.push(`/reports/cross/${data.reportId}`)
+        router.refresh()
       } else {
         res = await fetch('/api/reports/full', {
           method: 'POST',
@@ -198,6 +199,7 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
         if (!res.ok) throw new Error(data.error ?? 'Erreur inconnue')
         onClose()
         router.push(`/reports/full/${data.reportId}`)
+        router.refresh()
       }
     } catch (err) {
       setError((err as Error).message)
@@ -216,12 +218,12 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-[#2b3652]/60"
+        className="absolute inset-0 bg-[#1A1C1E]/50"
         onClick={!loading ? onClose : undefined}
       />
 
       {/* Panel */}
-      <div className="relative bg-white w-full max-w-[540px] shadow-2xl z-10 animate-in fade-in slide-in-from-bottom-4 duration-300">
+      <div className="relative bg-white w-full max-w-[540px] shadow-2xl z-10 animate-in fade-in slide-in-from-bottom-4 duration-300 rounded-[24px] overflow-hidden">
 
         {/* Header */}
         <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100">
@@ -230,16 +232,16 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
               <button
                 onClick={() => { setStep(1); setSelectedCategory(null); setSelectedCategories([]) }}
                 disabled={loading}
-                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-[#2b3652] transition disabled:opacity-40"
+                className="w-8 h-8 flex items-center justify-center text-[#707478] hover:text-[#1A1C1E] transition disabled:opacity-40"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
             )}
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-[#00b4d8] mb-0.5">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#257b57] mb-0.5">
                 {step === 1 ? 'Étape 1 / 2' : reportType === 'full' ? 'Prêt à générer' : 'Étape 2 / 2'}
               </p>
-              <h2 className="text-lg font-black text-[#2b3652] leading-tight">
+              <h2 className="text-lg font-black text-[#1A1C1E] leading-tight">
                 {step === 1 ? 'Choisir un type de rapport' :
                   reportType === 'category' ? 'Choisir la catégorie' :
                   reportType === 'cross' ? 'Sélectionner les catégories' :
@@ -250,7 +252,7 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
           {!loading && (
             <button
               onClick={onClose}
-              className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#2b3652] hover:bg-slate-100 transition"
+              className="w-9 h-9 flex items-center justify-center text-[#707478] hover:text-[#1A1C1E] hover:bg-slate-100 transition rounded-full"
             >
               <X className="w-5 h-5" />
             </button>
@@ -267,23 +269,23 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
                 <button
                   key={rt.key}
                   onClick={() => handleTypeSelect(rt.key)}
-                  className="flex items-start gap-4 p-5 border border-slate-200 text-left hover:border-[#00b4d8] hover:bg-[#f4f7fb] transition group"
+                  className="flex items-start gap-4 p-5 border border-slate-200 text-left hover:border-[#257b57] hover:bg-[#F4F6F8] transition group rounded-2xl"
                 >
-                  <div className="w-10 h-10 bg-[#f4f7fb] group-hover:bg-white flex items-center justify-center shrink-0 transition">
+                  <div className="w-10 h-10 bg-[#F4F6F8] group-hover:bg-white flex items-center justify-center shrink-0 transition rounded-full">
                     {rt.icon}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-black text-[#2b3652] text-sm">{rt.label}</span>
+                      <span className="font-black text-[#1A1C1E] text-sm">{rt.label}</span>
                       {rt.tag && (
-                        <span className="px-2 py-0.5 bg-[#00b4d8]/10 text-[#00b4d8] text-[9px] font-black tracking-widest uppercase border border-[#00b4d8]/20">
+                        <span className="px-2 py-0.5 bg-[#E6F4EA] text-[#257b57] text-[9px] font-black tracking-widest uppercase border border-[#257b57]/20 rounded-full">
                           {rt.tag}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-500 font-medium leading-relaxed">{rt.desc}</p>
+                    <p className="text-xs text-[#707478] font-medium leading-relaxed">{rt.desc}</p>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#00b4d8] shrink-0 mt-1 transition" />
+                  <ArrowRight className="w-4 h-4 text-[#707478] group-hover:text-[#257b57] shrink-0 mt-1 transition" />
                 </button>
               ))}
             </div>
@@ -297,21 +299,21 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
                   key={cat.key}
                   onClick={() => setSelectedCategory(cat.key)}
                   disabled={loading}
-                  className={`flex items-center gap-4 p-5 border text-left transition ${
+                  className={`flex items-center gap-4 p-5 border text-left transition rounded-2xl ${
                     selectedCategory === cat.key
-                      ? 'border-[#00b4d8] bg-[#e0f7fa]/30'
-                      : 'border-slate-200 hover:border-[#00b4d8]/50 hover:bg-[#f4f7fb]'
+                      ? 'border-[#257b57] bg-[#E6F4EA]/50'
+                      : 'border-slate-200 hover:border-[#257b57]/50 hover:bg-[#F4F6F8]'
                   } disabled:opacity-50`}
                 >
-                  <div className="w-10 h-10 bg-[#f4f7fb] flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 bg-[#F4F6F8] flex items-center justify-center shrink-0 rounded-full">
                     {cat.icon}
                   </div>
                   <div>
-                    <p className="font-black text-[#2b3652] text-sm mb-0.5">{cat.label}</p>
-                    <p className="text-xs text-slate-500 font-medium">{cat.desc}</p>
+                    <p className="font-black text-[#1A1C1E] text-sm mb-0.5">{cat.label}</p>
+                    <p className="text-xs text-[#707478] font-medium">{cat.desc}</p>
                   </div>
                   {selectedCategory === cat.key && (
-                    <div className="ml-auto w-5 h-5 bg-[#00b4d8] flex items-center justify-center shrink-0">
+                    <div className="ml-auto w-5 h-5 bg-[#257b57] flex items-center justify-center shrink-0 rounded-full">
                       <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                     </div>
                   )}
@@ -323,10 +325,10 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
           {/* Step 2 — Cross report: pick 2-3 categories */}
           {step === 2 && reportType === 'cross' && (
             <div className="flex flex-col gap-3">
-              <p className="text-xs text-slate-500 font-medium mb-2">
-                Sélectionnez <span className="font-black text-[#2b3652]">2 ou 3 catégories</span> à croiser.
-                {selectedCategories.length === 1 && <span className="text-[#00b4d8]"> — encore 1 minimum</span>}
-                {selectedCategories.length >= 2 && <span className="text-emerald-600"> — prêt à générer ✓</span>}
+              <p className="text-xs text-[#707478] font-medium mb-2">
+                Sélectionnez <span className="font-black text-[#1A1C1E]">2 ou 3 catégories</span> à croiser.
+                {selectedCategories.length === 1 && <span className="text-orange-500"> — encore 1 minimum</span>}
+                {selectedCategories.length >= 2 && <span className="text-[#257b57]"> — prêt à générer ✓</span>}
               </p>
               {CATEGORIES.map(cat => {
                 const checked = selectedCategories.includes(cat.key)
@@ -335,23 +337,23 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
                     key={cat.key}
                     onClick={() => toggleCrossCategory(cat.key)}
                     disabled={loading}
-                    className={`flex items-center gap-4 p-5 border text-left transition ${
+                    className={`flex items-center gap-4 p-5 border text-left transition rounded-2xl ${
                       checked
-                        ? 'border-[#00b4d8] bg-[#e0f7fa]/30'
-                        : 'border-slate-200 hover:border-[#00b4d8]/50 hover:bg-[#f4f7fb]'
+                        ? 'border-[#257b57] bg-[#E6F4EA]/50'
+                        : 'border-slate-200 hover:border-[#257b57]/50 hover:bg-[#F4F6F8]'
                     } disabled:opacity-50`}
                   >
                     <div className="shrink-0 text-slate-300">
                       {checked
-                        ? <CheckSquare className="w-5 h-5 text-[#00b4d8]" />
+                        ? <CheckSquare className="w-5 h-5 text-[#257b57]" />
                         : <Square className="w-5 h-5" />}
                     </div>
-                    <div className="w-10 h-10 bg-[#f4f7fb] flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 bg-[#F4F6F8] flex items-center justify-center shrink-0 rounded-full">
                       {cat.icon}
                     </div>
                     <div>
-                      <p className="font-black text-[#2b3652] text-sm mb-0.5">{cat.label}</p>
-                      <p className="text-xs text-slate-500 font-medium">{cat.desc}</p>
+                      <p className="font-black text-[#1A1C1E] text-sm mb-0.5">{cat.label}</p>
+                      <p className="text-xs text-[#707478] font-medium">{cat.desc}</p>
                     </div>
                   </button>
                 )
@@ -361,11 +363,11 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
 
           {/* Step 2 — Full report: confirmation card */}
           {step === 2 && reportType === 'full' && (
-            <div className="bg-[#2b3652] text-white p-6 relative overflow-hidden">
-              <div className="absolute -right-10 -top-10 w-40 h-40 bg-[#00b4d8] opacity-10 rounded-full blur-2xl" />
+            <div className="bg-[#1A1C1E] text-white p-6 relative overflow-hidden rounded-2xl">
+              <div className="absolute -right-10 -top-10 w-40 h-40 bg-[#257b57] opacity-20 rounded-full blur-2xl" />
               <div className="relative z-10">
-                <div className="w-12 h-12 bg-white/10 border border-white/10 flex items-center justify-center mb-4">
-                  <Globe className="w-6 h-6 text-[#00b4d8]" />
+                <div className="w-12 h-12 bg-white/10 border border-white/10 flex items-center justify-center mb-4 rounded-full">
+                  <Globe className="w-6 h-6 text-[#257b57]" />
                 </div>
                 <h3 className="text-xl font-black text-white mb-2">Global Intelligence Report</h3>
                 <p className="text-white/60 text-sm font-medium leading-relaxed">
@@ -378,9 +380,9 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
 
           {/* Progress steps while loading */}
           {loading && (
-            <div className="mt-5 flex items-center gap-3 p-4 bg-slate-50 border border-slate-200">
-              <Loader2 className="w-4 h-4 text-[#00b4d8] animate-spin shrink-0" />
-              <p className="text-xs font-medium text-slate-600 animate-pulse">
+            <div className="mt-5 flex items-center gap-3 p-4 bg-[#F4F6F8] rounded-xl border border-slate-200">
+              <Loader2 className="w-4 h-4 text-[#257b57] animate-spin shrink-0" />
+              <p className="text-xs font-medium text-[#1A1C1E] animate-pulse">
                 {currentSteps[stepIndex]}
               </p>
             </div>
@@ -388,7 +390,7 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
 
           {/* Error */}
           {error && (
-            <div className="mt-4 p-4 bg-rose-50 border border-rose-200">
+            <div className="mt-4 p-4 bg-rose-50 border border-rose-200 rounded-xl">
               <p className="text-xs font-bold text-rose-600">{error}</p>
             </div>
           )}
@@ -400,7 +402,7 @@ export default function QuickReportModal({ isOpen, onClose }: Props) {
             <button
               onClick={handleGenerate}
               disabled={loading || !canGenerate()}
-              className="w-full py-4 bg-[#2b3652] text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-[#1e2840] transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-[#1A1C1E] text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-black transition rounded-2xl disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Génération en cours...</>

@@ -1,159 +1,101 @@
 'use client';
-import { useState } from 'react';
+
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Database, ShieldCheck, LogOut, FileText, UserCircle, Folder } from 'lucide-react';
-import type { OpportunityDepartment } from '@/types/database';
-import QuickReportModal from '@/components/QuickReportModal';
+import {
+  LayoutDashboard,
+  Lightbulb,
+  FolderOpen,
+  BarChart2,
+  Database,
+  UserCircle,
+  Settings,
+  HelpCircle,
+  LogOut,
+  Sprout,
+} from 'lucide-react';
 
-interface NavigationProps {
-  stats?: {
-    opportunities: number;
-    newOpps: number;
-    signals: number;
-    averageScore: number;
-  };
-  recentOpps?: Array<{
-    id: string;
-    title: string;
-    department: OpportunityDepartment;
-    signal_count: number;
-    score_global: number;
-  }>;
-}
+const NAV_ITEMS = [
+  {
+    section: 'Menu',
+    links: [
+      { href: '/',              label: 'Dashboard',     icon: LayoutDashboard, match: (p: string) => p === '/' },
+      { href: '/opportunities', label: 'Opportunités',  icon: Lightbulb,       match: (p: string) => p.startsWith('/opportunities') },
+      { href: '/documents',     label: 'Mes Documents', icon: FolderOpen,      match: (p: string) => p.startsWith('/documents') },
+      { href: '/reports',       label: 'Rapports',      icon: BarChart2,       match: (p: string) => p.startsWith('/reports') },
+      { href: '/sources',       label: 'Sources',       icon: Database,        match: (p: string) => p.startsWith('/sources') },
+    ],
+  },
+  {
+    section: 'Compte',
+    links: [
+      { href: '/settings',      label: 'Mon Profil',    icon: UserCircle,      match: (p: string) => p.startsWith('/settings') },
+      { href: '/help',          label: 'Aide',          icon: HelpCircle,      match: (p: string) => p.startsWith('/help') },
+    ],
+  },
+];
 
-function formatDept(d: OpportunityDepartment | null): string {
-  if (!d) return '—'
-  const map: Record<OpportunityDepartment, string> = {
-    commercial: 'Comm', marketing: 'Mark.', operations: 'Ops',
-    finance: 'Fin.', rh: 'RH', technique: 'Tech', support: 'Support', autre: 'Autre',
-  }
-  return map[d] ?? d
-}
-
-export default function Navigation({ stats, recentOpps = [] }: NavigationProps) {
+export default function Navigation() {
   const pathname = usePathname();
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
-    <>
-    <QuickReportModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
-    <div className="flex h-screen shrink-0">
-      {/* Far Left Sidebar (White) */}
-      <aside className="w-[88px] bg-white border-r border-slate-200 flex flex-col items-center py-6 z-10">
-        <div className="w-12 h-12 bg-[#e0f7fa] text-[#00b4d8] flex items-center justify-center mb-10 rounded-sm">
-          <ShieldCheck className="w-7 h-7" />
+    <aside className="w-[220px] h-full bg-white rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col py-7 px-5 shrink-0 z-20">
+      {/* Logo */}
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 bg-[#257b57] text-white rounded-xl flex items-center justify-center shadow-sm shrink-0">
+            <Sprout strokeWidth={2} className="w-4.5 h-4.5" />
+          </div>
+          <div>
+            <p className="text-[13px] font-black text-[#1A1C1E] leading-none">Market</p>
+            <p className="text-[10px] font-bold text-[#707478] leading-none mt-0.5">Intelligence</p>
+          </div>
         </div>
+      </div>
 
-        <nav className="flex flex-col gap-6 flex-1 w-full items-center">
-          <Link href="/" className={`w-12 h-12 flex items-center justify-center transition-all rounded-sm ${pathname === '/' ? 'text-[#00b4d8] border-l-[3px] border-[#00b4d8] bg-[#e0f7fa]/50' : 'text-slate-400 hover:text-[#00b4d8]'}`}>
-            <LayoutDashboard className="w-6 h-6" />
-          </Link>
-          <Link href="/sources" className={`w-12 h-12 flex items-center justify-center transition-all rounded-sm ${pathname.startsWith('/sources') ? 'text-[#00b4d8] border-l-[3px] border-[#00b4d8] bg-[#e0f7fa]/50' : 'text-slate-400 hover:text-[#00b4d8]'}`}>
-            <Database className="w-6 h-6" />
-          </Link>
-          <Link href="/reports" className={`w-12 h-12 flex items-center justify-center transition-all rounded-sm ${pathname.startsWith('/reports') ? 'text-[#00b4d8] border-l-[3px] border-[#00b4d8] bg-[#e0f7fa]/50' : 'text-slate-400 hover:text-[#00b4d8]'}`}>
-            <FileText className="w-6 h-6" />
-          </Link>
-          <Link href="/documents" className={`w-12 h-12 flex items-center justify-center transition-all rounded-sm ${pathname.startsWith('/documents') ? 'text-[#00b4d8] border-l-[3px] border-[#00b4d8] bg-[#e0f7fa]/50' : 'text-slate-400 hover:text-[#00b4d8]'}`}>
-            <Folder className="w-6 h-6" />
-          </Link>
+      {/* Nav sections */}
+      <div className="flex flex-col gap-6 flex-1 overflow-y-auto plugin-noscrollbar">
+        {NAV_ITEMS.map((section) => (
+          <div key={section.section}>
+            <h4 className="text-[9px] font-black tracking-widest uppercase text-[#B0B4B8] mb-2 pl-2">
+              {section.section}
+            </h4>
+            <nav className="flex flex-col gap-0.5">
+              {section.links.map(({ href, label, icon: Icon, match }) => {
+                const active = match(pathname);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-sm ${
+                      active
+                        ? 'bg-[#1A1C1E] text-white font-bold shadow-sm'
+                        : 'text-[#707478] hover:text-[#1A1C1E] hover:bg-[#F4F6F8]'
+                    }`}
+                  >
+                    <Icon
+                      strokeWidth={active ? 2.5 : 1.8}
+                      className="w-[18px] h-[18px] shrink-0"
+                    />
+                    <span>{label}</span>
+                    {active && (
+                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#257b57] shrink-0" />
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        ))}
+      </div>
 
-          <div className="h-px w-8 bg-slate-100 my-2"></div>
-          <Link href="/settings" className={`w-12 h-12 flex items-center justify-center transition-all rounded-sm ${pathname.startsWith('/settings') ? 'text-[#00b4d8] border-l-[3px] border-[#00b4d8] bg-[#e0f7fa]/50' : 'text-slate-400 hover:text-[#00b4d8]'}`}>
-            <UserCircle className="w-6 h-6" />
-          </Link>
-        </nav>
-
-        <button className="text-slate-400 hover:text-rose-500 transition-colors mt-auto mb-4">
-          <LogOut className="w-6 h-6" />
+      {/* Footer — Logout */}
+      <div className="mt-4 pt-4 border-t border-[#F4F6F8]">
+        <button className="flex items-center gap-3 px-3 py-2.5 rounded-xl w-full text-[#707478] hover:text-rose-500 hover:bg-rose-50 transition-all text-sm">
+          <LogOut strokeWidth={1.8} className="w-[18px] h-[18px] shrink-0" />
+          <span>Déconnexion</span>
         </button>
-      </aside>
-
-      {/* Secondary Sidebar (#2b3652) */}
-      <aside className="w-[320px] bg-[#2b3652] flex flex-col pt-10 pb-6 px-8 relative shrink-0 z-20">
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="w-full bg-white text-[#2b3652] font-black py-4 mb-12 shadow-sm hover:shadow-md hover:bg-[#00b4d8] hover:text-white transition flex justify-center items-center gap-2 rounded-none text-[11px] uppercase tracking-widest"
-        >
-          Générer un nouveau rapport
-        </button>
-
-        <div className="mb-12 relative z-10">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-white/80 text-[11px] uppercase font-bold tracking-widest leading-none">Aperçu Global</h3>
-          </div>
-
-          <div className="grid grid-cols-2 gap-y-8 gap-x-4">
-            <div>
-              <div className="flex items-center gap-3 mb-1">
-                <div className="w-5 h-5 bg-white/10 flex items-center justify-center rounded-none">
-                  <div className="w-2 h-2 bg-white rounded-none"></div>
-                </div>
-                <span className="text-white text-3xl font-black tracking-tight">{stats?.opportunities ?? 0}</span>
-              </div>
-              <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider ml-8 mt-1">Opportunités</p>
-            </div>
-            
-            <div>
-              <div className="flex items-center gap-3 mb-1">
-                <div className="w-5 h-5 bg-[#00b4d8]/20 flex items-center justify-center rounded-none">
-                  <div className="w-2 h-2 bg-[#00b4d8] rounded-none"></div>
-                </div>
-                <span className="text-white text-3xl font-black tracking-tight">{stats?.newOpps ?? 0}</span>
-              </div>
-              <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider ml-8 mt-1">Nouvelles</p>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-3 mb-1">
-                <div className="w-5 h-5 bg-[#00b4d8]/20 flex items-center justify-center rounded-none">
-                  <div className="w-2 h-2 bg-[#00b4d8] rounded-none"></div>
-                </div>
-                <span className="text-white text-3xl font-black tracking-tight">{(stats?.signals ?? 0) >= 1000 ? ((stats?.signals ?? 0) / 1000).toFixed(1) + 'k' : (stats?.signals ?? 0)}</span>
-              </div>
-              <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider ml-8 mt-1">Signaux</p>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-3 mb-1">
-                <div className="w-5 h-5 bg-white/10 flex items-center justify-center rounded-none">
-                  <div className="w-2 h-2 bg-white rounded-none"></div>
-                </div>
-                <span className="text-white text-3xl font-black tracking-tight">{stats?.averageScore ?? 0}</span>
-              </div>
-              <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider ml-8 mt-1">Score Moyen</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 relative z-10">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-white/80 text-[11px] uppercase font-bold tracking-widest leading-none">Dernières Opp.</h3>
-          </div>
-
-          <div className="space-y-3">
-             {recentOpps.length > 0 ? recentOpps.map((opp) => (
-                <Link key={opp.id} href={`/opportunities/${opp.id}`} className="block p-3 border hover:bg-white/5 border-white/10 transition group rounded-none focus:outline-none focus:ring-1 focus:ring-white/50">
-                  <div className="flex justify-between items-center mb-1">
-                    <p className="text-sm font-bold truncate pr-2 text-white/90 group-hover:text-white transition">{opp.title}</p>
-                    <span className="text-[#00b4d8] border border-[#00b4d8]/30 bg-[#00b4d8]/10 px-1.5 py-0.5 text-[10px] font-black">{opp.score_global}</span>
-                  </div>
-                  <p className="text-xs font-medium text-white/50 group-hover:text-white/60 transition">
-                    {formatDept(opp.department)} • {opp.signal_count} occ.
-                  </p>
-                </Link>
-             )) : (
-                <p className="text-white/40 text-xs text-center py-4">Aucune opportunité récente</p>
-             )}
-          </div>
-        </div>
-
-        <Link href="/" className="mt-6 py-4 w-full block text-center border border-white/20 text-white/90 hover:text-white hover:bg-white/10 text-[11px] font-black uppercase tracking-widest transition rounded-none">
-          Voir tout
-        </Link>
-      </aside>
-    </div>
-    </>
+      </div>
+    </aside>
   );
 }

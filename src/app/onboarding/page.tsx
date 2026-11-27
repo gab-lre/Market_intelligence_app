@@ -559,52 +559,87 @@ export default function OnboardingPage() {
 
   // Initialisation : récupérer ou créer l'UUID
   useEffect(() => {
+    async function createNewProfile(): Promise<string | null> {
+      try {
+        const res = await fetch('/api/user/profile', { method: 'POST' })
+        const data = await res.json()
+        if (!res.ok || !data.userId) {
+          console.error('[Onboarding] Failed to create profile:', data.error)
+          return null
+        }
+        return data.userId
+      } catch (err) {
+        console.error('[Onboarding] Network error creating profile:', err)
+        return null
+      }
+    }
+
     async function init() {
       let id = localStorage.getItem('mi_user_id')
 
       if (!id) {
-        const res = await fetch('/api/user/profile', { method: 'POST' })
-        const data = await res.json()
-        id = data.userId
-        localStorage.setItem('mi_user_id', id!)
+        const newId = await createNewProfile()
+        if (newId) {
+          id = newId
+          localStorage.setItem('mi_user_id', id)
+        }
       } else {
         // Charger le profil existant
-        const res = await fetch(`/api/user/profile?userId=${id}`)
-        const data = await res.json()
-        if (data.profile) {
-          // Si onboarding déjà complété → redirect dashboard
-          if (data.profile.onboarding_completed) {
-            router.push('/')
-            return
+        try {
+          const res = await fetch(`/api/user/profile?userId=${id}`)
+          const data = await res.json()
+          if (data.profile) {
+            // Si onboarding déjà complété → redirect dashboard
+            if (data.profile.onboarding_completed) {
+              router.push('/')
+              return
+            }
+            // Reprendre là où on en était
+            const p = data.profile
+            setDraft({
+              entrepreneurial_stage: p.entrepreneurial_stage,
+              main_motivation: p.main_motivation ?? [],
+              time_horizon: p.time_horizon,
+              prior_experience: p.prior_experience,
+              tech_level: p.tech_level,
+              secondary_skills: p.secondary_skills ?? [],
+              spoken_languages: p.spoken_languages ?? [],
+              weekly_availability: p.weekly_availability,
+              budget_range: p.budget_range,
+              preferred_business_models: p.preferred_business_models ?? [],
+              excluded_sectors: p.excluded_sectors ?? [],
+              preferred_sectors: p.preferred_sectors ?? [],
+              preferred_solution_types: p.preferred_solution_types ?? [],
+              preferred_target: p.preferred_target,
+              product_complexity: p.product_complexity,
+              priority_market: p.priority_market,
+              existing_sector_knowledge: p.existing_sector_knowledge,
+              report_detail_level: p.report_detail_level,
+              report_tone: p.report_tone,
+            })
+            if (p.onboarding_step > 0) setCurrentStep(Math.min(p.onboarding_step, TOTAL_STEPS))
+          } else {
+            // Profil introuvable — localStorage périmé ou BDD réinitialisée
+            // Purger le localStorage et créer un nouveau profil
+            localStorage.removeItem('mi_user_id')
+            const newId = await createNewProfile()
+            if (newId) {
+              id = newId
+              localStorage.setItem('mi_user_id', id)
+            }
           }
-          // Reprendre là où on en était
-          const p = data.profile
-          setDraft({
-            entrepreneurial_stage: p.entrepreneurial_stage,
-            main_motivation: p.main_motivation ?? [],
-            time_horizon: p.time_horizon,
-            prior_experience: p.prior_experience,
-            tech_level: p.tech_level,
-            secondary_skills: p.secondary_skills ?? [],
-            spoken_languages: p.spoken_languages ?? [],
-            weekly_availability: p.weekly_availability,
-            budget_range: p.budget_range,
-            preferred_business_models: p.preferred_business_models ?? [],
-            excluded_sectors: p.excluded_sectors ?? [],
-            preferred_sectors: p.preferred_sectors ?? [],
-            preferred_solution_types: p.preferred_solution_types ?? [],
-            preferred_target: p.preferred_target,
-            product_complexity: p.product_complexity,
-            priority_market: p.priority_market,
-            existing_sector_knowledge: p.existing_sector_knowledge,
-            report_detail_level: p.report_detail_level,
-            report_tone: p.report_tone,
-          })
-          if (p.onboarding_step > 0) setCurrentStep(Math.min(p.onboarding_step, TOTAL_STEPS))
+        } catch (err) {
+          console.error('[Onboarding] Error loading profile:', err)
+          // En cas d'erreur réseau, on tente quand même de créer un profil
+          const newId = await createNewProfile()
+          if (newId) {
+            id = newId
+            localStorage.setItem('mi_user_id', id)
+          }
         }
       }
 
-      setUserId(id!)
+      setUserId(id)
       setInitialized(true)
     }
     init()
@@ -619,11 +654,15 @@ export default function OnboardingPage() {
     if (!userId) return
     setSaving(true)
     try {
-      await fetch('/api/user/profile', {
+      const res = await fetch('/api/user/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, ...draft, onboarding_step: step, ...extraFields }),
       })
+      if (!res.ok) {
+        const data = await res.json()
+        console.error('[Onboarding] saveStep error:', data.error)
+      }
     } finally {
       setSaving(false)
     }
@@ -667,11 +706,15 @@ export default function OnboardingPage() {
   const handleConfirm = async () => {
     if (!userId) return
     setConfirming(true)
-    await fetch('/api/user/profile', {
+    const res = await fetch('/api/user/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, onboarding_completed: true }),
     })
+    if (!res.ok) {
+      const data = await res.json()
+      console.error('[Onboarding] handleConfirm error:', data.error)
+    }
     router.push('/')
   }
 

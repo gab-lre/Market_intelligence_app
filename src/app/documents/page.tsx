@@ -1,4 +1,4 @@
-import { Folder } from 'lucide-react'
+import { FolderOpen } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import DocumentsFilter from '@/components/DocumentsFilter'
 import type { DocumentItem } from '@/components/DocumentsFilter'
@@ -19,14 +19,11 @@ export default async function DocumentsPage() {
 
   const documents: DocumentItem[] = []
 
-  // AI reports
   for (const r of reports ?? []) {
     const href =
-      r.type === 'category'
-        ? `/reports/category/${r.id}`
-        : r.type === 'cross'
-        ? `/reports/cross/${r.id}`
-        : `/reports/full/${r.id}`
+      r.type === 'category' ? `/reports/category/${r.id}`
+      : r.type === 'cross'  ? `/reports/cross/${r.id}`
+                            : `/reports/full/${r.id}`
     documents.push({
       id: r.id,
       docType: r.type as 'category' | 'cross' | 'full',
@@ -37,13 +34,10 @@ export default async function DocumentsPage() {
     })
   }
 
-  // Collection reports
   for (const c of collections ?? []) {
     const summaries = c.results_summary as Record<string, unknown> | null
     const sourceNames = summaries
-      ? Object.keys(summaries)
-          .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-          .join(', ')
+      ? Object.keys(summaries).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')
       : 'Sources mixtes'
     documents.push({
       id: c.id,
@@ -55,44 +49,40 @@ export default async function DocumentsPage() {
     })
   }
 
-  const totalReports = (reports?.length ?? 0)
+  const totalReports    = reports?.length ?? 0
   const totalCollections = collections?.length ?? 0
 
   return (
-    <div className="max-w-[1400px] mx-auto animate-in fade-in duration-700 pb-20">
+    <div className="flex flex-col gap-4 h-full min-h-0 pl-4">
       {/* Header */}
-      <div className="flex items-start justify-between mb-10">
+      <div className="flex items-center justify-between shrink-0">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-[#e0f7fa] flex items-center justify-center">
-              <Folder className="w-5 h-5 text-[#00b4d8]" />
-            </div>
-            <h1 className="text-3xl font-black text-[#2b3652] tracking-tight">Documents</h1>
-          </div>
-          <p className="text-slate-500 text-sm font-medium ml-13">
-            Accédez à l'ensemble de vos rapports et collectes. Base de données centralisée.
+          <h1 className="text-[22px] font-black text-[#1A1C1E] tracking-tight">Mes Documents</h1>
+          <p className="text-[13px] text-[#707478] font-medium mt-0.5">
+            Base documentaire centralisée — rapports IA et historiques de collecte.
           </p>
         </div>
 
         {/* Stats strip */}
-        <div className="flex items-center gap-6 shrink-0">
-          <div className="text-right">
-            <p className="text-2xl font-black text-[#2b3652]">{totalReports + totalCollections}</p>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total</p>
+        <div className="flex items-center gap-5 shrink-0 bg-white rounded-2xl px-5 py-3 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#F0F2F4]">
+          <div className="text-center">
+            <p className="text-xl font-black text-[#1A1C1E] leading-none">{totalReports + totalCollections}</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-[#A0A4A8] mt-1">Total</p>
           </div>
-          <div className="w-px h-10 bg-slate-200" />
-          <div className="text-right">
-            <p className="text-2xl font-black text-[#00b4d8]">{totalReports}</p>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Rapports IA</p>
+          <div className="w-px h-8 bg-[#F0F2F4]" />
+          <div className="text-center">
+            <p className="text-xl font-black text-[#257b57] leading-none">{totalReports}</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-[#A0A4A8] mt-1">Rapports</p>
           </div>
-          <div className="w-px h-10 bg-slate-200" />
-          <div className="text-right">
-            <p className="text-2xl font-black text-slate-500">{totalCollections}</p>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Collections</p>
+          <div className="w-px h-8 bg-[#F0F2F4]" />
+          <div className="text-center">
+            <p className="text-xl font-black text-[#707478] leading-none">{totalCollections}</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-[#A0A4A8] mt-1">Collections</p>
           </div>
         </div>
       </div>
 
+      {/* Documents grid */}
       <DocumentsFilter documents={documents} />
     </div>
   )

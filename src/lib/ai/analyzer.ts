@@ -1,13 +1,15 @@
-// Pipeline d'analyse IA — Gemini 2.5 Flash
-// Prend les signaux raw_signals en status 'pending' et produit des opportunités structurées
+// Pipeline d'analyse IA — OpenAI Multi-couches
+// Layer 0 : filtre TypeScript (prefilter.ts) — gratuit
+// Layer 1 : gpt-4.1-nano classification (classifier.ts)
+// Layer 2 : gpt-5-mini analyse fusionnée + merge check (ce fichier)
 
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { supabase } from '@/lib/supabase'
-import {
-  buildAnalysisSystemPrompt,
-  MERGE_CHECK_SYSTEM_PROMPT,
-  buildMergeCheckPrompt,
-} from './prompts'
+import { getOpenAIClient } from './openai-client'
+import { MODELS, REASONING_EFFORT, estimateCost } from './models'
+import { buildAnalysisSystemPrompt, buildFusedAnalysisPrompt } from './prompts'
+import { safeParseAIResponse } from './utils'
+import { prefilterSignals } from './prefilter'
+import { classifySignals } from './classifier'
 import type {
   RawSignal,
   UserProfile,
@@ -19,17 +21,16 @@ import type {
   Complexity,
   MarketSizeHint,
 } from '@/types/database'
-
-const MODEL_ANALYSIS = 'gemini-2.5-flash'
-const MODEL_MERGE = 'gemini-2.5-flash'
+import type OpenAI from 'openai'
 
 // ============================================
 // Types internes
 // ============================================
 
-interface GeminiAnalysis {
+interface OpenAIAnalysis {
   is_opportunity: boolean
   confidence: number
+  merge_match: string | null
   analysis?: {
     opportunity_type: OpportunityType
     opportunity_title: string
@@ -70,72 +71,41 @@ export interface AnalysisResult {
   errors: number
   opportunityIds: string[]
   errorDetails: string[]
-  quotaReached?: boolean
-}
-
-function isQuotaError(err: unknown): boolean {
-  const msg = (err as Error)?.message ?? ''
-  return msg.includes('429') || msg.includes('Too Many Requests') || msg.toLowerCase().includes('quota')
+  quotaReached?: boolean // conservé pour rétrocompatibilité — toujours false désormais
 }
 
 // ============================================
-// Initialisation Gemini
+// Helpers
 // ============================================
 
-function getGeminiClient() {
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) throw new Error('GEMINI_API_KEY manquante dans .env.local')
-  return new GoogleGenerativeAI(apiKey)
-}
-
 // ============================================
-// Appel Gemini + parse JSON
+// Appel Layer 2 — analyse fusionnée (gpt-5-mini)
 // ============================================
 
-async function callGemini(
-  genAI: GoogleGenerativeAI,
-  modelName: string,
+async function callAnalyzer(
+  client: OpenAI,
+  signal: RawSignal,
   systemPrompt: string,
-  userContent: string
-): Promise<string> {
-  const model = genAI.getGenerativeModel({
-    model: modelName,
-    systemInstruction: systemPrompt,
+  existingOpportunities: Array<{ id: string; title: string }>
+): Promise<{ result: OpenAIAnalysis; usage: { input_tokens: number; output_tokens: number } }> {
+  const userContent = buildFusedAnalysisPrompt(signal, existingOpportunities)
+
+  const response = await client.responses.create({
+    model: MODELS.ANALYZER,
+    reasoning: { effort: REASONING_EFFORT.ANALYZER },
+    instructions: systemPrompt,
+    input: userContent,
   })
-  const result = await model.generateContent(userContent)
-  return result.response.text()
-}
 
-function parseJsonResponse<T>(raw: string): T {
-  // Retire les balises markdown si présentes (```json ... ```)
-  const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-  return JSON.parse(cleaned) as T
-}
+  const raw: string = response.output_text ?? ''
+  const result = safeParseAIResponse<OpenAIAnalysis>(raw, signal.id)
 
-// ============================================
-// Vérification de fusion avec opportunités existantes
-// ============================================
-
-async function findMatchingOpportunity(
-  genAI: GoogleGenerativeAI,
-  newTitle: string
-): Promise<string | null> {
-  const { data: existing } = await supabase
-    .from('opportunities')
-    .select('id, title')
-    .eq('status', 'active')
-    .limit(50)
-
-  if (!existing || existing.length === 0) return null
-
-  try {
-    const prompt = buildMergeCheckPrompt(newTitle, existing)
-    const raw = await callGemini(genAI, MODEL_MERGE, MERGE_CHECK_SYSTEM_PROMPT, prompt)
-    const result = parseJsonResponse<{ match: string }>(raw)
-    return result.match === 'new' ? null : result.match
-  } catch {
-    // En cas d'erreur de fusion, on crée une nouvelle opportunité
-    return null
+  return {
+    result,
+    usage: {
+      input_tokens: response.usage?.input_tokens ?? 0,
+      output_tokens: response.usage?.output_tokens ?? 0,
+    },
   }
 }
 
@@ -144,23 +114,24 @@ async function findMatchingOpportunity(
 // ============================================
 
 async function upsertOpportunity(
-  analysis: NonNullable<GeminiAnalysis['analysis']>,
+  analysis: NonNullable<OpenAIAnalysis['analysis']>,
   signalId: string,
   sourceType: string,
   matchId: string | null
 ): Promise<{ id: string; isNew: boolean }> {
   if (matchId) {
-    // Mise à jour d'une opportunité existante
     const { data: existing } = await supabase
       .from('opportunities')
       .select('signal_count, score_urgency, score_tool_gap, score_saturation, source_types')
       .eq('id', matchId)
       .single()
 
-    if (!existing) throw new Error(`Opportunité ${matchId} introuvable`)
+    if (!existing) {
+      console.warn(`[Analyzer] merge_match ${matchId} introuvable — création d'une nouvelle opportunité`)
+      return upsertOpportunity(analysis, signalId, sourceType, null)
+    }
 
     const n = existing.signal_count + 1
-    // Moyenne pondérée glissante des scores
     const newUrgency = Math.round(
       (existing.score_urgency * existing.signal_count + analysis.urgency_score) / n
     )
@@ -186,16 +157,14 @@ async function upsertOpportunity(
       })
       .eq('id', matchId)
 
-    // Liaison N-N
     await supabase.from('opportunity_signals').insert({
       opportunity_id: matchId,
       signal_id: signalId,
-      relevance_note: `Signal fusionné — confiance ${analysis.opportunity_title}`,
+      relevance_note: `Signal fusionné — ${analysis.opportunity_title}`,
     })
 
     return { id: matchId, isNew: false }
   } else {
-    // Création d'une nouvelle opportunité
     const insert: OpportunityInsert = {
       title: analysis.opportunity_title,
       description: analysis.opportunity_description,
@@ -205,11 +174,11 @@ async function upsertOpportunity(
       tool_gaps: analysis.tool_gaps ?? null,
       department: (analysis.department as OpportunityInsert['department']) ?? null,
       company_size: (analysis.company_size ?? []) as OpportunityInsert['company_size'],
-      score_volume: 10, // Calculé par scoring.ts après insertion
+      score_volume: 10,
       score_urgency: analysis.urgency_score,
       score_tool_gap: analysis.tool_gap_score,
       score_saturation: analysis.saturation_score,
-      score_global: 0, // Calculé par scoring.ts
+      score_global: 0,
       signal_count: 1,
       source_types: [sourceType],
       status: 'active',
@@ -235,7 +204,6 @@ async function upsertOpportunity(
 
     if (error || !data) throw new Error(`Erreur insertion opportunité : ${error?.message}`)
 
-    // Liaison N-N
     await supabase.from('opportunity_signals').insert({
       opportunity_id: data.id,
       signal_id: signalId,
@@ -255,7 +223,7 @@ export async function analyzeSignals(
   limit = 50,
   profile?: UserProfile | null
 ): Promise<AnalysisResult> {
-  const genAI = getGeminiClient()
+  const client = getOpenAIClient()
   const systemPrompt = buildAnalysisSystemPrompt(profile ?? null)
 
   // Récupère les signaux en attente
@@ -270,55 +238,65 @@ export async function analyzeSignals(
   }
 
   const { data: signals, error } = await query
-
   if (error) throw new Error(`Erreur lecture signaux : ${error.message}`)
   if (!signals || signals.length === 0) {
     return { analyzed: 0, created: 0, updated: 0, discarded: 0, errors: 0, opportunityIds: [], errorDetails: [] }
   }
 
+  const allSignals = signals as RawSignal[]
+
+  // ── Layer 0 : filtre TypeScript (gratuit) ──────────────────────────────
+  const { passed: afterPrefilter, discarded: prefilterDiscarded } = await prefilterSignals(allSignals)
+
+  // ── Layer 1 : classification gpt-4.1-nano ─────────────────────────────
+  const { passed: toAnalyze, discarded: classifierDiscarded, usage: classifierUsage } =
+    await classifySignals(client, afterPrefilter)
+
+  const totalDiscardedByFilters = prefilterDiscarded.length + classifierDiscarded.length
+
+  // Récupère le top 50 des opportunités existantes UNE SEULE FOIS avant la boucle
+  const { data: existingOpps } = await supabase
+    .from('opportunities')
+    .select('id, title')
+    .eq('status', 'active')
+    .order('score_global', { ascending: false })
+    .limit(50)
+
+  const existingOpportunities = (existingOpps ?? []) as Array<{ id: string; title: string }>
+
   const result: AnalysisResult = {
-    analyzed: 0,
+    analyzed: toAnalyze.length,
     created: 0,
     updated: 0,
-    discarded: 0,
+    discarded: totalDiscardedByFilters,
     errors: 0,
     opportunityIds: [],
     errorDetails: [],
     quotaReached: false,
   }
 
-  for (const signal of signals as RawSignal[]) {
+  let analyzerInputTokens = 0
+  let analyzerOutputTokens = 0
+
+  // ── Layer 2 : analyse fusionnée gpt-5-mini ────────────────────────────
+  for (const signal of toAnalyze) {
     try {
-      const userContent = [
-        signal.title ?? '(sans titre)',
-        '',
-        signal.content ?? '',
-        signal.url ? `URL: ${signal.url}` : '',
-      ]
-        .filter(Boolean)
-        .join('\n')
-
-      const raw = await callGemini(genAI, MODEL_ANALYSIS, systemPrompt, userContent)
-
-      let parsed: GeminiAnalysis
-      try {
-        parsed = parseJsonResponse<GeminiAnalysis>(raw)
-      } catch {
-        await supabase.from('raw_signals').update({ status: 'error' }).eq('id', signal.id)
-        result.errors++
-        continue
-      }
+      const { result: parsed, usage } = await callAnalyzer(
+        client,
+        signal,
+        systemPrompt,
+        existingOpportunities
+      )
+      analyzerInputTokens += usage.input_tokens
+      analyzerOutputTokens += usage.output_tokens
 
       if (!parsed.is_opportunity || !parsed.analysis) {
         await supabase.from('raw_signals').update({ status: 'discarded' }).eq('id', signal.id)
         result.discarded++
-        result.analyzed++
         continue
       }
 
-      // Cherche une opportunité existante à fusionner
-      const matchId = await findMatchingOpportunity(genAI, parsed.analysis.opportunity_title)
-
+      const matchId = parsed.merge_match ?? null
       const { id: opportunityId, isNew } = await upsertOpportunity(
         parsed.analysis,
         signal.id,
@@ -330,23 +308,60 @@ export async function analyzeSignals(
 
       if (isNew) result.created++
       else result.updated++
-      result.analyzed++
 
       if (!result.opportunityIds.includes(opportunityId)) {
         result.opportunityIds.push(opportunityId)
       }
     } catch (err) {
       const msg = (err as Error).message
-      if (isQuotaError(err)) {
-        console.warn(`[Analyzer] Quota Gemini journalier atteint — arrêt propre. Signaux restants conservés en 'pending'.`)
-        result.quotaReached = true
-        break
-      }
       console.error(`[Analyzer] Erreur sur signal ${signal.id} :`, msg)
       await supabase.from('raw_signals').update({ status: 'error' }).eq('id', signal.id)
       result.errors++
       result.errorDetails.push(msg)
     }
+  }
+
+  // ── Suivi consommation → collections_history ──────────────────────────
+  if (batchId && (classifierUsage.input_tokens > 0 || analyzerInputTokens > 0)) {
+    const analyzerCost = estimateCost(MODELS.ANALYZER, analyzerInputTokens, analyzerOutputTokens)
+    const totalCost = classifierUsage.estimated_cost_usd + analyzerCost
+
+    const { data: batch } = await supabase
+      .from('collections_history')
+      .select('results_summary')
+      .eq('id', batchId)
+      .single()
+
+    const existingSummary = (batch?.results_summary ?? {}) as Record<string, unknown>
+
+    await supabase
+      .from('collections_history')
+      .update({
+        results_summary: {
+          ...existingSummary,
+          ai_usage: {
+            classifier: {
+              model: MODELS.CLASSIFIER,
+              input_tokens: classifierUsage.input_tokens,
+              output_tokens: classifierUsage.output_tokens,
+              estimated_cost_usd: classifierUsage.estimated_cost_usd,
+            },
+            analyzer: {
+              model: MODELS.ANALYZER,
+              input_tokens: analyzerInputTokens,
+              output_tokens: analyzerOutputTokens,
+              estimated_cost_usd: analyzerCost,
+            },
+            total_cost_usd: totalCost,
+          },
+        },
+      })
+      .eq('id', batchId)
+
+    console.log(
+      `[Analyzer] Coût total batch : $${totalCost.toFixed(5)} ` +
+      `(classifier: $${classifierUsage.estimated_cost_usd.toFixed(5)}, analyzer: $${analyzerCost.toFixed(5)})`
+    )
   }
 
   return result

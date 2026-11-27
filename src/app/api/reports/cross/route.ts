@@ -3,14 +3,14 @@
 // Body : { categories: ('community' | 'job' | 'startup')[], userId?: string }
 
 import { NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { supabase } from '@/lib/supabase'
+import { getOpenAIClient } from '@/lib/ai/openai-client'
+import { MODELS, REASONING_EFFORT, estimateCost } from '@/lib/ai/models'
 import {
   CROSS_REPORT_SYSTEM_PROMPT,
   buildCrossReportPrompt,
 } from '@/lib/ai/prompts'
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+import { safeParseAIResponse } from '@/lib/ai/utils'
 
 const CATEGORY_CONFIG: Record<string, { label: string; sourceTypes: string[] }> = {
   community: { label: 'Communautés & Insights', sourceTypes: ['community', 'review'] },
@@ -18,14 +18,6 @@ const CATEGORY_CONFIG: Record<string, { label: string; sourceTypes: string[] }> 
   startup: { label: 'Écosystème Startups', sourceTypes: ['community'] },
 }
 
-function parseJsonResponse<T>(text: string): T {
-  const cleaned = text
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/\s*```$/i, '')
-    .trim()
-  return JSON.parse(cleaned) as T
-}
 
 export async function POST(request: Request) {
   try {
@@ -52,17 +44,17 @@ export async function POST(request: Request) {
       profileSummary = profile?.profile_summary ?? null
     }
 
-    // 2. Données par catégorie
+    // 2. Données par catégorie (opportunités uniquement — pas de signaux bruts)
     const categoriesData = await Promise.all(
       validCategories.map(async (cat) => {
         const config = CATEGORY_CONFIG[cat]
 
         const { data: signals } = await supabase
           .from('raw_signals')
-          .select('id, title, content, source')
+          .select('id')
           .in('source_type', config.sourceTypes)
           .order('collected_at', { ascending: false })
-          .limit(50)
+          .limit(100)
 
         const signalIds = (signals ?? []).map(s => s.id)
         let opportunities: Array<{ title: string; score_global: number; department: string | null }> = []
@@ -86,7 +78,6 @@ export async function POST(request: Request) {
           }
         }
 
-        // Extraire les thèmes dominants depuis les titres des opportunités
         const topThemes = opportunities.slice(0, 5).map(o => o.title)
 
         return {
@@ -99,24 +90,28 @@ export async function POST(request: Request) {
       })
     )
 
-    // Vérifier qu'on a des données
-    const totalSignals = categoriesData.reduce((sum, c) => sum + c.signalCount, 0)
-    if (totalSignals === 0) {
+    const totalOpps = categoriesData.reduce((sum, c) => sum + c.opportunities.length, 0)
+    if (totalOpps === 0) {
       return NextResponse.json(
-        { error: 'Aucun signal disponible pour les catégories sélectionnées. Lancez d\'abord une collecte.' },
+        { error: "Aucune opportunité disponible. Lancez d'abord une collecte et une analyse." },
         { status: 422 }
       )
     }
 
-    // 3. Générer le rapport
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      systemInstruction: CROSS_REPORT_SYSTEM_PROMPT,
+    // 3. Générer le rapport via OpenAI gpt-5
+    const client = getOpenAIClient()
+    const prompt = buildCrossReportPrompt({ categories: categoriesData, profileSummary })
+
+    const response = await client.responses.create({
+      model: MODELS.REPORTER,
+      reasoning: { effort: REASONING_EFFORT.REPORTER },
+      instructions: CROSS_REPORT_SYSTEM_PROMPT,
+      input: prompt,
     })
 
-    const prompt = buildCrossReportPrompt({ categories: categoriesData, profileSummary })
-    const result = await model.generateContent(prompt)
-    const rawText = result.response.text()
+    const rawText = response.output_text ?? ''
+    const inputTokens = response.usage?.input_tokens ?? 0
+    const outputTokens = response.usage?.output_tokens ?? 0
 
     type CrossReportData = {
       convergence_matrix: Array<{ opportunity_title: string; confirmed_by: string[]; strength: string; insight: string }>
@@ -126,7 +121,7 @@ export async function POST(request: Request) {
       for_you: string
     }
 
-    const reportData = parseJsonResponse<CrossReportData>(rawText)
+    const reportData = safeParseAIResponse<CrossReportData>(rawText, `report:cross:${categories.join(',')}`)
 
     // 4. Construire les sections
     const sections = [
@@ -178,7 +173,13 @@ export async function POST(request: Request) {
         sections_done: sections.length,
         generation_params: {
           categories: validCategories,
-          total_signals: totalSignals,
+          total_opportunities: totalOpps,
+          ai_usage: {
+            model: MODELS.REPORTER,
+            input_tokens: inputTokens,
+            output_tokens: outputTokens,
+            estimated_cost_usd: estimateCost(MODELS.REPORTER, inputTokens, outputTokens),
+          },
         },
       })
       .select('id')

@@ -14,6 +14,8 @@ export type SignalSource =
   | 'producthunt'
   | 'indiehackers'
   | 'g2'
+  | 'capterra'
+  | 'trustpilot'
   | 'linkedin'
   | 'indeed'
   | 'wellfound'

@@ -10,19 +10,19 @@ const FIREBASE_BASE = 'https://hacker-news.firebaseio.com/v0'
 
 const DEFAULT_KEYWORDS = [
   'ask hn',
-  'SaaS',
-  'startup idea',
-  'side project',
   'I built',
-  'looking for tool',
-  'pain point',
+  'scratch our own itch',
+  'every week',
+  'nobody has built',
+  'wish someone would',
+  'frustrated with',
+  'replace excel',
+  'no good tool',
   'manual process',
-  'spreadsheet hell',
-  'wish there was',
 ]
 
-const DEFAULT_MAX_RESULTS = 50
-const DEFAULT_MIN_POINTS = 5
+const DEFAULT_MAX_RESULTS = 100
+const DEFAULT_MIN_POINTS = 3
 const COMMENTS_THRESHOLD = 10  // Récupère les commentaires si > X comments
 const MAX_TOP_COMMENTS = 5     // Nombre max de commentaires de 1er niveau à inclure
 
@@ -75,7 +75,9 @@ async function searchAlgolia(
   tags: string,
   hitsPerPage: number
 ): Promise<AlgoliaHit[]> {
-  const url = `${ALGOLIA_BASE}/search?query=${encodeURIComponent(query)}&tags=${tags}&hitsPerPage=${hitsPerPage}`
+  // Filtre : uniquement les 30 derniers jours
+  const thirtyDaysAgoTs = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000)
+  const url = `${ALGOLIA_BASE}/search?query=${encodeURIComponent(query)}&tags=${tags}&hitsPerPage=${hitsPerPage}&numericFilters=created_at_i>${thirtyDaysAgoTs}`
   const res = await fetchWithTimeout(url)
   if (!res.ok) throw new Error(`Algolia ${res.status} pour "${query}"`)
   const data: AlgoliaResponse = await res.json()

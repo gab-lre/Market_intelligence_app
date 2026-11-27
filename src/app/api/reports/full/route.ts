@@ -1,16 +1,16 @@
 // POST /api/reports/full
-// Génère un rapport d'intelligence marché complet (6 sections, plusieurs appels Gemini)
+// Génère un rapport d'intelligence marché complet (6 sections, 3 appels OpenAI groupés)
 // Body : { userId?: string }
 
 import { NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { supabase } from '@/lib/supabase'
+import { getOpenAIClient } from '@/lib/ai/openai-client'
+import { MODELS, REASONING_EFFORT, estimateCost } from '@/lib/ai/models'
 import {
   FULL_REPORT_SYSTEM_PROMPT,
-  buildFullReportSectionPrompt,
+  buildFullReportGroupPrompt,
 } from '@/lib/ai/prompts'
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+import { safeParseAIResponse } from '@/lib/ai/utils'
 
 const SECTION_TITLES: Record<number, string> = {
   1: 'Executive Summary',
@@ -18,16 +18,29 @@ const SECTION_TITLES: Record<number, string> = {
   3: 'Analyse Emploi & Voix des Utilisateurs',
   4: 'Analyse Concurrentielle',
   5: 'Top Opportunités Personnalisées',
-  6: 'Ce qu\'il Faudrait Construire en Premier',
+  6: "Ce qu'il Faudrait Construire en Premier",
 }
 
-function parseJsonResponse<T>(text: string): T {
-  const cleaned = text
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/\s*```$/i, '')
-    .trim()
-  return JSON.parse(cleaned) as T
+// Sections générées par groupe : [sectionA_order, sectionB_order]
+const SECTION_GROUPS: Array<[number, number]> = [[1, 2], [3, 4], [5, 6]]
+
+
+function normalizeContent(raw: unknown): string {
+  if (typeof raw === 'string') return raw
+  if (Array.isArray(raw)) {
+    return (raw as Array<Record<string, unknown>>)
+      .map((item, idx) => {
+        if (typeof item === 'string') return item
+        const parts: string[] = []
+        if (item.title) parts.push(`### ${idx + 1}. ${item.title}`)
+        Object.entries(item).forEach(([k, v]) => {
+          if (k !== 'title' && v != null) parts.push(`**${k}** : ${v}`)
+        })
+        return parts.join('\n')
+      })
+      .join('\n\n')
+  }
+  return String(raw ?? '')
 }
 
 export async function POST(request: Request) {
@@ -46,7 +59,7 @@ export async function POST(request: Request) {
       profileSummary = profile?.profile_summary ?? null
     }
 
-    // 2. Récupérer toutes les opportunités actives
+    // 2. Opportunités actives
     const { data: opportunities } = await supabase
       .from('opportunities')
       .select('title, score_global, department, opportunity_type, target_market, complexity')
@@ -56,7 +69,7 @@ export async function POST(request: Request) {
 
     if (!opportunities || opportunities.length === 0) {
       return NextResponse.json(
-        { error: 'Aucune opportunité disponible. Lancez d\'abord une collecte et une analyse.' },
+        { error: "Aucune opportunité disponible. Lancez d'abord une collecte et une analyse." },
         { status: 422 }
       )
     }
@@ -82,7 +95,7 @@ export async function POST(request: Request) {
       departmentDistribution[dept] = (departmentDistribution[dept] ?? 0) + 1
     }
 
-    // 5. Créer le rapport en statut "generating" pour tracking
+    // 5. Créer le rapport en statut "generating"
     const { data: reportRow, error: createError } = await supabase
       .from('generated_reports')
       .insert({
@@ -107,11 +120,7 @@ export async function POST(request: Request) {
     }
 
     const reportId = reportRow.id
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      systemInstruction: FULL_REPORT_SYSTEM_PROMPT,
-      generationConfig: { maxOutputTokens: 8192 },
-    })
+    const client = getOpenAIClient()
 
     const params = {
       totalSignals,
@@ -125,63 +134,87 @@ export async function POST(request: Request) {
       profileSummary,
     }
 
-    // 6. Générer les 6 sections séquentiellement
+    // 6. Générer les 6 sections en 3 appels groupés
     const sections: Array<{ order: number; title: string; content: string }> = []
+    let totalInputTokens = 0
+    let totalOutputTokens = 0
 
-    for (let i = 1; i <= 6; i++) {
+    for (let groupIdx = 0; groupIdx < SECTION_GROUPS.length; groupIdx++) {
+      const [orderA, orderB] = SECTION_GROUPS[groupIdx]
+      const groupIndex = (groupIdx + 1) as 1 | 2 | 3
+
       try {
-        const prompt = buildFullReportSectionPrompt(i, params)
-        const result = await model.generateContent(prompt)
-        const rawText = result.response.text()
+        const prompt = buildFullReportGroupPrompt(groupIndex, params)
 
-        type SectionData = { title: string; content: unknown }
-        const sectionData = parseJsonResponse<SectionData>(rawText)
+        const response = await client.responses.create({
+          model: MODELS.REPORTER,
+          reasoning: { effort: REASONING_EFFORT.REPORTER },
+          instructions: FULL_REPORT_SYSTEM_PROMPT,
+          input: prompt,
+        })
 
-        const rawContent = sectionData.content
-        let content: string
-        if (typeof rawContent === 'string') {
-          content = rawContent
-        } else if (Array.isArray(rawContent)) {
-          content = (rawContent as Array<Record<string, unknown>>)
-            .map((item, idx) => {
-              if (typeof item === 'string') return item
-              const parts: string[] = []
-              if (item.title) parts.push(`### ${idx + 1}. ${item.title}`)
-              Object.entries(item).forEach(([k, v]) => {
-                if (k !== 'title' && v != null) parts.push(`**${k}** : ${v}`)
-              })
-              return parts.join('\n')
-            })
-            .join('\n\n')
-        } else {
-          content = String(rawContent ?? '')
+        totalInputTokens += response.usage?.input_tokens ?? 0
+        totalOutputTokens += response.usage?.output_tokens ?? 0
+
+        const rawText = response.output_text ?? ''
+
+        type GroupData = {
+          section_A: { title: string; content: unknown }
+          section_B: { title: string; content: unknown }
         }
+        const groupData = safeParseAIResponse<GroupData>(rawText, `report:full:group${groupIndex}`)
 
-        sections.push({ order: i, title: sectionData.title as string, content })
+        sections.push({
+          order: orderA,
+          title: (groupData.section_A?.title as string) || SECTION_TITLES[orderA],
+          content: normalizeContent(groupData.section_A?.content),
+        })
+        sections.push({
+          order: orderB,
+          title: (groupData.section_B?.title as string) || SECTION_TITLES[orderB],
+          content: normalizeContent(groupData.section_B?.content),
+        })
 
-        // Mise à jour du compteur de progression
+        // Tri pour un affichage cohérent + mise à jour de la progression
+        sections.sort((a, b) => a.order - b.order)
         await supabase
           .from('generated_reports')
-          .update({ sections_done: i, sections })
+          .update({ sections_done: orderB, sections })
           .eq('id', reportId)
 
-      } catch (sectionErr) {
-        console.error(`[FullReport] Erreur section ${i}:`, sectionErr)
+      } catch (groupErr) {
+        console.error(`[FullReport] Erreur groupe ${groupIndex}:`, groupErr)
         sections.push({
-          order: i,
-          title: SECTION_TITLES[i] ?? `Section ${i}`,
-          content: `Cette section n'a pas pu être générée : ${(sectionErr as Error).message}`,
+          order: orderA,
+          title: SECTION_TITLES[orderA],
+          content: `Cette section n'a pas pu être générée : ${(groupErr as Error).message}`,
+        })
+        sections.push({
+          order: orderB,
+          title: SECTION_TITLES[orderB],
+          content: `Cette section n'a pas pu être générée : ${(groupErr as Error).message}`,
         })
       }
     }
 
-    // 7. Finaliser le rapport
+    // 7. Finaliser le rapport avec suivi de consommation
+    sections.sort((a, b) => a.order - b.order)
     await supabase
       .from('generated_reports')
       .update({
         sections,
         status: 'completed',
         sections_done: 6,
+        generation_params: {
+          total_signals: totalSignals,
+          total_opportunities: opportunities.length,
+          ai_usage: {
+            model: MODELS.REPORTER,
+            input_tokens: totalInputTokens,
+            output_tokens: totalOutputTokens,
+            estimated_cost_usd: estimateCost(MODELS.REPORTER, totalInputTokens, totalOutputTokens),
+          },
+        },
       })
       .eq('id', reportId)
 

@@ -1,188 +1,141 @@
-// Collecteur Product Hunt
-// Source : Endpoint GraphQL non-officiel de Product Hunt (sans authentification)
-// Si Product Hunt bloque les requêtes, le collecteur se désactive proprement.
-// On reviendra avec Apify en Phase 6 si nécessaire.
+// Collecteur Product Hunt via feed Atom public
+// Feed : https://www.producthunt.com/feed (Atom, pas RSS 2.0)
+// Signal : nouveaux produits lancés → le tagline/description révèle le problème résolu
+// Filtre : produits des 30 derniers jours uniquement pour garantir la fraîcheur
 
 import type { Scraper, RawSignalInput } from '../types'
 
-const PH_GRAPHQL_URL = 'https://www.producthunt.com/frontend/graphql'
-
+const PH_FEED_URL = 'https://www.producthunt.com/feed'
 const DEFAULT_MAX_RESULTS = 50
-const DEFAULT_MIN_UPVOTES = 10
-const DEFAULT_DAYS_BACK = 30
+const FETCH_HEADERS = { 'User-Agent': 'SaaS-Intelligence/1.0 (RSS Reader)' }
 
-// Catégories SaaS pertinentes (filtre sur les topics)
-const RELEVANT_TOPICS = [
-  'productivity',
-  'saas',
-  'developer tools',
-  'marketing',
-  'sales',
-  'analytics',
-  'project management',
-  'crm',
-  'automation',
-  'finance',
-  'hr',
-  'customer support',
-  'design tools',
-  'no-code',
-  'artificial intelligence',
-]
-
-const GRAPHQL_QUERY = `
-  query GetRecentPosts($first: Int!, $after: String) {
-    posts(first: $first, after: $after, order: RANKING) {
-      edges {
-        node {
-          id
-          name
-          tagline
-          description
-          url
-          votesCount
-          commentsCount
-          createdAt
-          topics {
-            edges {
-              node {
-                name
-                slug
-              }
-            }
-          }
-          user {
-            name
-          }
-        }
-        cursor
-      }
-    }
-  }
-`
-
-interface PHTopic {
-  node: { name: string; slug: string }
-}
-
-interface PHPost {
+interface FeedItem {
   id: string
-  name: string
-  tagline: string
-  description: string | null
-  url: string
-  votesCount: number
-  commentsCount: number
-  createdAt: string
-  topics: { edges: PHTopic[] }
-  user: { name: string } | null
+  title: string
+  link: string
+  description: string
+  pubDate: string
 }
 
-interface PHEdge {
-  node: PHPost
-  cursor: string
-}
+// Parse le feed Atom de ProductHunt
+// Format Atom : <entry>, <published>, <link href="..." rel="alternate"/>, <content>
+function parseAtomFeed(xml: string): FeedItem[] {
+  const items: FeedItem[] = []
+  const entryMatches = xml.matchAll(/<entry>([\s\S]*?)<\/entry>/gi)
 
-interface PHGraphQLResponse {
-  data?: {
-    posts?: {
-      edges: PHEdge[]
+  for (const match of entryMatches) {
+    const block = match[1]
+
+    const title = decodeEntities(extractTag(block, 'title'))
+
+    // Atom : <link rel="alternate" type="text/html" href="..."/>
+    const linkMatch = block.match(/<link[^>]+rel="alternate"[^>]+href="([^"]+)"/i)
+      ?? block.match(/<link[^>]+href="([^"]+)"[^>]*rel="alternate"/i)
+      ?? block.match(/<link[^>]+href="([^"]+)"/i)
+    const link = linkMatch?.[1] ?? ''
+
+    // Contenu dans <content type="html">
+    const rawContent = extractTag(block, 'content')
+    const description = decodeEntities(stripHtml(rawContent))
+
+    // Date dans <published> (déjà au format ISO — new Date() fonctionne directement)
+    const pubDate = extractTag(block, 'published')
+
+    // ID depuis <id>tag:www.producthunt.com,2005:Post/1124837</id>
+    const idTag = extractTag(block, 'id')
+    const postIdMatch = idTag.match(/Post\/(\d+)/)
+    const id = postIdMatch ? postIdMatch[1] : (link || idTag)
+
+    if (title && id) {
+      items.push({ id, title, link, description, pubDate })
     }
   }
-  errors?: Array<{ message: string }>
+
+  return items
 }
 
-async function fetchProductHuntPosts(first: number): Promise<PHPost[]> {
-  const res = await fetch(PH_GRAPHQL_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'User-Agent': 'Mozilla/5.0 (compatible; SaaS-Intelligence/1.0)',
-      Accept: 'application/json',
-      Origin: 'https://www.producthunt.com',
-      Referer: 'https://www.producthunt.com/',
-    },
-    body: JSON.stringify({
-      query: GRAPHQL_QUERY,
-      variables: { first },
-    }),
-    cache: 'no-store',
-  })
-
-  if (!res.ok) {
-    throw new Error(`Product Hunt GraphQL HTTP ${res.status}`)
-  }
-
-  const data: PHGraphQLResponse = await res.json()
-
-  if (data.errors?.length) {
-    throw new Error(`Product Hunt GraphQL error: ${data.errors[0].message}`)
-  }
-
-  return data.data?.posts?.edges.map((e) => e.node) ?? []
+function extractTag(xml: string, tag: string): string {
+  const match = xml.match(new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`, 'i'))
+  return match ? match[1].trim() : ''
 }
 
-function isRelevantPost(post: PHPost): boolean {
-  const postTopics = post.topics.edges.map((e) => e.node.slug.toLowerCase())
-  return postTopics.some((slug) =>
-    RELEVANT_TOPICS.some((relevant) => slug.includes(relevant.replace(/ /g, '-')))
-  )
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<p>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .trim()
 }
 
-export class ProductHuntScraper implements Scraper {
-  name = 'Product Hunt'
-  source = 'producthunt' as const
-  sourceType = 'community' as const
+function decodeEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+}
 
-  async collect(params: Record<string, unknown>): Promise<RawSignalInput[]> {
+export const ProductHuntScraper: Scraper = {
+  name: 'Product Hunt (Atom)',
+  source: 'producthunt',
+  sourceType: 'community',
+
+  async collect(params) {
+    console.log('[ProductHunt] Lancement de la collecte via Atom feed...')
     const maxResults = (params.maxResults as number) ?? DEFAULT_MAX_RESULTS
-    const minUpvotes = (params.minUpvotes as number) ?? DEFAULT_MIN_UPVOTES
-    const daysBack = (params.daysBack as number) ?? DEFAULT_DAYS_BACK
+    const daysBack = (params.daysBack as number) ?? 30
+    const cutoffDate = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000)
 
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - daysBack)
-
-    let posts: PHPost[]
+    let xml: string
     try {
-      posts = await fetchProductHuntPosts(Math.min(maxResults * 2, 100))
+      const res = await fetch(PH_FEED_URL, {
+        headers: FETCH_HEADERS,
+        cache: 'no-store',
+      })
+      if (!res.ok) throw new Error(`Feed HTTP ${res.status}`)
+      xml = await res.text()
     } catch (err) {
-      console.warn('[ProductHunt] Collecteur désactivé —', (err as Error).message)
+      console.warn('[ProductHunt] Feed inaccessible —', (err as Error).message)
       return []
     }
 
+    const items = parseAtomFeed(xml)
+    console.log(`[ProductHunt] ${items.length} entrées parsées dans le feed`)
+
     const signals: RawSignalInput[] = []
+    const seenIds = new Set<string>()
 
-    for (const post of posts) {
-      // Filtrer par date
-      if (new Date(post.createdAt) < cutoffDate) continue
-      // Filtrer par upvotes
-      if (post.votesCount < minUpvotes) continue
-      // Filtrer par catégorie pertinente
-      if (!isRelevantPost(post)) continue
+    for (const item of items) {
+      if (signals.length >= maxResults) break
 
-      const topics = post.topics.edges.map((e) => e.node.name)
-      const content = post.description?.trim() || post.tagline
+      if (item.pubDate) {
+        const pubDate = new Date(item.pubDate)
+        if (isNaN(pubDate.getTime()) || pubDate < cutoffDate) continue
+      }
+
+      if (seenIds.has(item.id)) continue
+      seenIds.add(item.id)
+
+      const fullContent = item.description
+        ? `${item.title}\n\n${item.description}`
+        : item.title
 
       signals.push({
         source: 'producthunt',
         sourceType: 'community',
-        externalId: post.id,
-        title: `${post.name} — ${post.tagline}`,
-        content,
-        url: post.url,
-        author: post.user?.name,
-        publishedAt: post.createdAt,
-        metadata: {
-          upvotes: post.votesCount,
-          num_comments: post.commentsCount,
-          topics,
-          maker_name: post.user?.name ?? null,
-        },
+        externalId: item.id,
+        title: `[ProductHunt] ${item.title}`,
+        content: fullContent.slice(0, 3000),
+        url: item.link,
+        publishedAt: item.pubDate ? new Date(item.pubDate).toISOString() : undefined,
+        metadata: {},
       })
-
-      if (signals.length >= maxResults) break
     }
 
+    console.log(`[ProductHunt] ${signals.length} produits collectés (${daysBack} derniers jours)`)
     return signals
-  }
+  },
 }

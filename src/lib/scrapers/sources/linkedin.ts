@@ -140,7 +140,7 @@ export class LinkedInScraper implements Scraper {
             },
             memoryMbytes: 512,
             timeoutSecs: 60,
-            maxWaitMs: 90_000,
+            maxWaitMs: 180_000,
           })
 
           for (const item of items) {

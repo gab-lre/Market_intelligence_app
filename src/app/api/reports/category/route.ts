@@ -3,14 +3,14 @@
 // Body : { category: 'community' | 'job' | 'startup', userId?: string }
 
 import { NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { supabase } from '@/lib/supabase'
+import { getOpenAIClient } from '@/lib/ai/openai-client'
+import { MODELS, REASONING_EFFORT, estimateCost } from '@/lib/ai/models'
 import {
   CATEGORY_REPORT_SYSTEM_PROMPT,
   buildCategoryReportPrompt,
 } from '@/lib/ai/prompts'
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+import { safeParseAIResponse } from '@/lib/ai/utils'
 
 const CATEGORY_CONFIG: Record<string, { label: string; sourceTypes: string[]; sources: string[] }> = {
   community: {
@@ -30,14 +30,6 @@ const CATEGORY_CONFIG: Record<string, { label: string; sourceTypes: string[]; so
   },
 }
 
-function parseJsonResponse<T>(text: string): T {
-  const cleaned = text
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/\s*```$/i, '')
-    .trim()
-  return JSON.parse(cleaned) as T
-}
 
 export async function POST(request: Request) {
   try {
@@ -60,58 +52,62 @@ export async function POST(request: Request) {
       profileSummary = profile?.profile_summary ?? null
     }
 
-    // 2. Récupérer les signaux de la catégorie (max 100 récents)
-    const { data: signals } = await supabase
+    // 2. Récupérer les opportunités liées à cette catégorie via les signaux
+    const { data: recentSignals } = await supabase
       .from('raw_signals')
-      .select('id, title, content, source, source_type')
+      .select('id')
       .in('source_type', config.sourceTypes)
       .order('collected_at', { ascending: false })
-      .limit(100)
+      .limit(200)
 
-    if (!signals || signals.length === 0) {
+    const signalIds = (recentSignals ?? []).map(s => s.id)
+
+    let opportunities: Array<{ title: string; problem: string | null; score_global: number; department: string | null; opportunity_type: string }> = []
+    if (signalIds.length > 0) {
+      const { data: linkedOpps } = await supabase
+        .from('opportunity_signals')
+        .select('opportunity_id')
+        .in('signal_id', signalIds)
+
+      const oppIds = [...new Set((linkedOpps ?? []).map(l => l.opportunity_id))]
+      if (oppIds.length > 0) {
+        const { data: opps } = await supabase
+          .from('opportunities')
+          .select('title, problem, score_global, department, opportunity_type')
+          .in('id', oppIds)
+          .eq('status', 'active')
+          .order('score_global', { ascending: false })
+          .limit(30)
+        opportunities = opps ?? []
+      }
+    }
+
+    if (opportunities.length === 0) {
       return NextResponse.json(
-        { error: `Aucun signal disponible pour la catégorie "${config.label}". Lancez d'abord une collecte.` },
+        { error: `Aucune opportunité disponible pour la catégorie "${config.label}". Lancez d'abord une collecte et une analyse.` },
         { status: 422 }
       )
     }
 
-    // 3. Récupérer les opportunités liées via opportunity_signals
-    const signalIds = signals.map(s => s.id)
-    const { data: linkedOpps } = await supabase
-      .from('opportunity_signals')
-      .select('opportunity_id')
-      .in('signal_id', signalIds)
-
-    const oppIds = [...new Set((linkedOpps ?? []).map(l => l.opportunity_id))]
-
-    let opportunities: Array<{ title: string; problem: string | null; score_global: number; department: string | null; opportunity_type: string }> = []
-    if (oppIds.length > 0) {
-      const { data: opps } = await supabase
-        .from('opportunities')
-        .select('title, problem, score_global, department, opportunity_type')
-        .in('id', oppIds)
-        .eq('status', 'active')
-        .order('score_global', { ascending: false })
-        .limit(30)
-      opportunities = opps ?? []
-    }
-
-    // 4. Générer le rapport via Gemini
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      systemInstruction: CATEGORY_REPORT_SYSTEM_PROMPT,
-    })
-
+    // 3. Générer le rapport via OpenAI gpt-5
+    const client = getOpenAIClient()
     const prompt = buildCategoryReportPrompt({
       category,
       categoryLabel: config.label,
-      signals: signals as Array<{ title: string | null; content: string; source: string; source_type: string }>,
       opportunities,
       profileSummary,
     })
 
-    const result = await model.generateContent(prompt)
-    const rawText = result.response.text()
+    const response = await client.responses.create({
+      model: MODELS.REPORTER,
+      reasoning: { effort: REASONING_EFFORT.REPORTER },
+      instructions: CATEGORY_REPORT_SYSTEM_PROMPT,
+      input: prompt,
+    })
+
+    const rawText = response.output_text ?? ''
+    const inputTokens = response.usage?.input_tokens ?? 0
+    const outputTokens = response.usage?.output_tokens ?? 0
 
     type ReportData = {
       synthesis: string
@@ -122,9 +118,9 @@ export async function POST(request: Request) {
       for_you: string
     }
 
-    const reportData = parseJsonResponse<ReportData>(rawText)
+    const reportData = safeParseAIResponse<ReportData>(rawText, `report:category:${category}`)
 
-    // 5. Convertir en sections et sauvegarder
+    // 4. Convertir en sections et sauvegarder
     const sections = [
       { order: 1, title: 'Synthèse', content: reportData.synthesis },
       {
@@ -165,8 +161,13 @@ export async function POST(request: Request) {
         sections_done: sections.length,
         generation_params: {
           category,
-          signals_analyzed: signals.length,
           opportunities_included: opportunities.length,
+          ai_usage: {
+            model: MODELS.REPORTER,
+            input_tokens: inputTokens,
+            output_tokens: outputTokens,
+            estimated_cost_usd: estimateCost(MODELS.REPORTER, inputTokens, outputTokens),
+          },
         },
       })
       .select('id')

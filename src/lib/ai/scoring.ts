@@ -1,12 +1,21 @@
 // Module de scoring — Calcul du score global des opportunités
-// score_global = (score_volume × 0.30) + (score_urgency × 0.35) + (score_tool_gap × 0.25) - (score_saturation × 0.10)
-// score_volume = min(100, (signal_count / max_signal_count_global) × 100)
+//
+// Formule révisée (v2) :
+//   score_quality = (score_urgency × 0.50) + (score_tool_gap × 0.40) - (score_saturation × 0.10)
+//   score_volume_bonus = min(15, log2(signal_count + 1) × 5)   → bonus plafonné à +15 pts
+//   score_global = min(100, score_quality + score_volume_bonus)
+//
+// Rationale :
+//   - score_quality reflète la valeur intrinsèque du besoin détecté (urgency + tool_gap)
+//   - score_volume_bonus ajoute un signal de validation sans dominer (log → rendement décroissant)
+//   - Une opportunité avec urgency=80, tool_gap=70, saturation=20 → score_quality = 65
+//     + 1 signal → +5 → 70 | + 4 signaux → +10 → 75 | + 7 signaux → +13 → 78
+//   - Plus de pénalisation par le faible volume initial : une nouvelle opportunité peut déjà scorer >60
 
 import { supabase } from '@/lib/supabase'
 import type { Opportunity, UserProfile } from '@/types/database'
 
 export async function recalculateOpportunityScore(opportunityId: string): Promise<void> {
-  // Récupère l'opportunité
   const { data: opportunity, error } = await supabase
     .from('opportunities')
     .select('signal_count, score_urgency, score_tool_gap, score_saturation')
@@ -18,30 +27,33 @@ export async function recalculateOpportunityScore(opportunityId: string): Promis
     return
   }
 
-  // Récupère le max global de signal_count pour normaliser le score_volume
+  // Qualité intrinsèque (0-100)
+  const scoreQuality = Math.round(
+    opportunity.score_urgency * 0.50 +
+    opportunity.score_tool_gap * 0.40 -
+    opportunity.score_saturation * 0.10
+  )
+
+  // Bonus volume : log2 pour un rendement décroissant (1 signal → +5, 4 → +10, 15+ → +15 max)
+  const scoreVolumeBonus = Math.min(15, Math.round(Math.log2(opportunity.signal_count + 1) * 5))
+
+  // score_volume pour affichage UI (normalisé 0-100, informatif)
   const { data: maxData } = await supabase
     .from('opportunities')
     .select('signal_count')
     .order('signal_count', { ascending: false })
     .limit(1)
     .single()
-
   const maxSignalCount = maxData?.signal_count ?? 1
-
   const scoreVolume = Math.min(100, Math.round((opportunity.signal_count / maxSignalCount) * 100))
 
-  const scoreGlobal = Math.round(
-    scoreVolume * 0.3 +
-    opportunity.score_urgency * 0.35 +
-    opportunity.score_tool_gap * 0.25 -
-    opportunity.score_saturation * 0.1
-  )
+  const scoreGlobal = Math.max(0, Math.min(100, scoreQuality + scoreVolumeBonus))
 
   await supabase
     .from('opportunities')
     .update({
       score_volume: scoreVolume,
-      score_global: Math.max(0, Math.min(100, scoreGlobal)),
+      score_global: scoreGlobal,
       updated_at: new Date().toISOString(),
     })
     .eq('id', opportunityId)

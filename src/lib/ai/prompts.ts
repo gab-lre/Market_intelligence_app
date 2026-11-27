@@ -1,7 +1,7 @@
 // Prompts Gemini — Pipeline d'analyse d'opportunités SaaS
 // Version 2 — calibré pour un entrepreneur solo francophone (vibe coding)
 
-import type { UserProfile } from '@/types/database'
+import type { UserProfile, RawSignal } from '@/types/database'
 
 export const ANALYSIS_SYSTEM_PROMPT = `Tu es un analyste de marché expert spécialisé dans l'identification d'opportunités business dans le numérique. Tu travailles pour un entrepreneur solo francophone (France/Québec) qui maîtrise le développement assisté par IA (vibe coding) et qui peut construire des produits fonctionnels rapidement sans équipe.
 
@@ -15,7 +15,16 @@ Un même signal peut révéler plusieurs types d'opportunités. Si c'est le cas,
 
 ---
 
-SECTEURS À EXCLURE : Si le signal concerne un secteur à forte réglementation ou à barrière d'entrée élevée (médical/santé, pharmaceutique, bancaire/fintech réglementée, assurance, juridique nécessitant un agrément, défense, nucléaire), mets is_opportunity à false avec discard_reason "Secteur réglementé — barrière d'entrée trop élevée".
+PÉRIMÈTRE DES OPPORTUNITÉS :
+Tu analyses des signaux provenant de sources variées : posts communautaires (Reddit, HN), reviews de logiciels (G2, Capterra, Trustpilot), offres d'emploi (France Travail, Indeed, LinkedIn), missions freelance (Upwork), et lancements produits (ProductHunt).
+
+- Pour les **reviews** (G2, Capterra, Trustpilot) : le signal utile est dans les "cons", les "why they switched", et les frustrations décrites. Un besoin de remplacer un processus manuel ou une fonctionnalité manquante = opportunité potentielle.
+- Pour les **offres d'emploi** (France Travail, Indeed, LinkedIn) : recruter un humain pour une tâche répétitive = signal fort qu'aucun outil n'automatise encore ce besoin dans ce secteur.
+- Pour les **posts communautaires** : les demandes explicites d'outil, les workarounds avec Excel/email, les frustrations nommées = signaux directs.
+
+SECTEURS COUVERTS : Tu peux identifier des opportunités dans TOUS les secteurs — comptabilité, RH, logistique, immobilier, restauration, construction, retail, éducation, juridique, marketing, etc. Ne te limite pas aux entreprises tech.
+
+SECTEURS À EXCLURE : Si le signal concerne un secteur à forte réglementation ou à barrière d'entrée élevée SANS opportunité SaaS claire (médical/santé clinique, pharmaceutique, bancaire/fintech réglementée, assurance actuarielle, défense, nucléaire), mets is_opportunity à false avec discard_reason "Secteur réglementé — barrière d'entrée trop élevée". Note : les outils de gestion administrative pour ces secteurs (facturation, RH, planning) restent valides.
 
 ---
 
@@ -60,25 +69,25 @@ Pour chaque signal, réponds UNIQUEMENT en JSON valide (pas de markdown, pas de 
 
 GRILLE DE SCORING :
 
-urgency_score (poids 35%) — Urgence du besoin :
-- 80-100 : L'entreprise paie un humain à temps plein pour cette tâche, ou le manque d'outil cause une perte directe de revenus/temps significative
-- 50-79 : Le besoin est réel, récurrent, et provoque de la frustration visible (plaintes, workarounds bricolés)
-- 20-49 : Le besoin est mentionné mais reste secondaire, pas de douleur aiguë
-- 0-19 : Mention vague, curiosité, pas de vrai besoin actionnable
+urgency_score (poids 50%) — Urgence et intensité du besoin :
+- 80-100 : L'entreprise paie un humain à temps plein pour cette tâche, ou la frustration est explicitement décrite comme bloquante (churn, perte de revenus, abandon du logiciel). Offre d'emploi pour un rôle purement manuel dans un secteur non-tech = 85+.
+- 60-79 : Besoin réel et récurrent, frustration visible, workarounds actifs (Excel, email, copier-coller entre outils). Review avec "cons" détaillés ou "why they switched" = 65-75.
+- 40-59 : Besoin mentionné, gêne perceptible mais pas critique. Demande d'outil sans urgence forte.
+- 0-39 : Mention vague, curiosité, satisfaction globale, pas de douleur identifiable.
 
-tool_gap_score (poids 25%) — Manque d'outils existants :
-- 80-100 : Besoin clairement exprimé, aucun outil nommé, les gens bricolent avec Excel/email/papier
-- 50-79 : Des outils existent mais sont jugés inadaptés, trop chers, trop complexes, ou mal localisés pour le marché francophone
-- 20-49 : Des outils existent et sont utilisés, mais avec frustration ou des fonctionnalités manquantes
-- 0-19 : Le marché est bien couvert, les utilisateurs sont globalement satisfaits
+tool_gap_score (poids 40%) — Manque d'outils adaptés :
+- 80-100 : Aucun outil nommé, bricolage avec Excel/email/papier, ou l'outil existant est dit abandonné/remplacé pour raison de gap fonctionnel.
+- 60-79 : Des outils existent mais sont jugés trop chers, trop complexes, mal adaptés au secteur, ou non localisés en français. "Switched from X because it lacked Y" = 70.
+- 40-59 : Outils existants utilisés mais avec des fonctionnalités manquantes précises (intégration, reporting, automatisation partielle).
+- 0-39 : Marché bien couvert, les utilisateurs sont globalement satisfaits des outils nommés.
 
-saturation_score (poids 10%, impact négatif) — Saturation du marché :
-- 80-100 : Marché dominé par des acteurs majeurs bien établis avec des effets de réseau (Salesforce, HubSpot, Slack, Notion...)
-- 50-79 : Plusieurs concurrents établis mais des niches géographiques (francophone) ou verticales restent ouvertes
-- 20-49 : Peu de concurrents, marché émergent ou fragmenté
-- 0-19 : Quasi aucun outil dédié sur ce créneau
+saturation_score (impact négatif, -10% max) — Saturation du marché :
+- 80-100 : Marché dominé par des acteurs majeurs avec effets de réseau forts (Salesforce, HubSpot, SAP, Oracle, Slack, Notion, Shopify sur leur cœur de métier).
+- 50-79 : Plusieurs concurrents établis, mais des niches (géographiques, verticales, taille d'entreprise) restent ouvertes.
+- 20-49 : Peu de concurrents, marché fragmenté ou émergent dans ce secteur précis.
+- 0-19 : Quasi aucun outil dédié identifiable pour ce besoin spécifique.
 
-Note : le score_volume (poids 30%) est calculé côté application en fonction du nombre de signaux convergents. Tu n'as pas à le fournir.
+Note : le score_volume est calculé côté application. Tu n'as pas à le fournir.
 
 ---
 
@@ -97,7 +106,9 @@ RÈGLES DE DÉCISION :
 
 5. Pour target_market : le focus est francophone. Si le signal est en anglais mais le besoin est universel et pas encore bien servi en français, note "fr_qc" et mentionne l'angle de localisation dans la description.
 
-6. Si tu hésites entre is_opportunity true ou false, penche vers true avec un confidence bas (30-50). Il vaut mieux un faux positif qu'un faux négatif — le scoring global se chargera de trier.`
+6. Si tu hésites entre is_opportunity true ou false, penche vers true avec un confidence bas (30-50). Il vaut mieux un faux positif qu'un faux négatif — le scoring global se chargera de trier.
+
+7. All numeric score fields (urgency_score, tool_gap_score, saturation_score, confidence) must be plain integers between 0 and 100. Never write numbers as English words (e.g. write 80 not "eighty").`
 
 // ============================================
 // Prompt d'analyse personnalisé selon le profil utilisateur
@@ -134,8 +145,7 @@ function buildPersonalizationBlock(profile: UserProfile): string {
     non_tech:
       "NIVEAU TECHNIQUE — NON DÉVELOPPEUR : L'utilisateur n'a pas de compétences en développement. " +
       "Mets solo_dev_feasible: false pour tout ce qui nécessite du code backend, des APIs custom, ou une architecture serveur. " +
-      "Préfère opportunity_type: 'template', 'micro_product', ou 'ai_agent_service' (prestation externalisée). " +
-      "Pour complexity: 'high', baisse l'urgency_score de 20 points — cette opportunité est hors portée.",
+      "Préfère opportunity_type: 'template', 'micro_product', ou 'ai_agent_service' (prestation externalisée).",
     low_code:
       "NIVEAU TECHNIQUE — LOW-CODE : L'utilisateur maîtrise les outils no-code/low-code (Make, Zapier, Bubble, Webflow, Notion). " +
       "Solo_dev_feasible: true pour les solutions réalisables avec ces outils. " +
@@ -156,8 +166,7 @@ function buildPersonalizationBlock(profile: UserProfile): string {
   const budgetInstructions: Record<string, string> = {
     bootstrapped:
       "BUDGET BOOTSTRAPPED (< 1 000€) : Priorise fortement estimated_cost: '< 500$'. " +
-      "Pour estimated_cost: '5000$+', réduis tool_gap_score de 20 points (l'opportunité existe mais n'est pas accessible). " +
-      "Pour '2000-5000$', réduis de 10 points.",
+      "Les opportunités à coût élevé sont moins prioritaires mais restent valides si le potentiel marché est fort.",
     few_thousands:
       "BUDGET QUELQUES MILLIERS (1 000€-5 000€) : Les opportunités jusqu'à '2000-5000$' sont pertinentes. " +
       "Pour '5000$+', score normal si le potentiel ROI est clairement élevé.",
@@ -172,8 +181,7 @@ function buildPersonalizationBlock(profile: UserProfile): string {
   // 6. Horizon temporel → impacte time_to_mvp et urgency_score
   if (profile.time_horizon === 'short') {
     parts.push(
-      "HORIZON COURT (< 6 mois) : Priorise fortement time_to_mvp: 'days' ou 'weeks'. " +
-      "Pour time_to_mvp: 'months', réduis urgency_score de 15 points — trop long pour cet utilisateur.\n"
+      "HORIZON COURT (< 6 mois) : Priorise fortement time_to_mvp: 'days' ou 'weeks'. Les opportunités avec time_to_mvp 'months' sont moins prioritaires mais restent valides.\n"
     )
   } else if (profile.time_horizon === 'medium') {
     parts.push(
@@ -312,19 +320,15 @@ export const CATEGORY_REPORT_SYSTEM_PROMPT = `Tu es un analyste de marché exper
 export function buildCategoryReportPrompt(params: {
   category: string
   categoryLabel: string
-  signals: Array<{ title: string | null; content: string; source: string; source_type: string }>
+  signals?: Array<{ title: string | null; content: string; source: string; source_type: string }>
   opportunities: Array<{ title: string; problem: string | null; score_global: number; department: string | null; opportunity_type: string }>
   profileSummary?: string | null
 }): string {
   const userCtx = buildUserContextBlock(params.profileSummary)
-  const signalsSample = params.signals.slice(0, 30).map(s => `[${s.source}] ${s.title ?? ''}: ${s.content.slice(0, 200)}`).join('\n')
   const oppsText = params.opportunities.slice(0, 20).map(o => `- ${o.title} (score: ${o.score_global}, dept: ${o.department ?? '?'}, type: ${o.opportunity_type})`).join('\n')
 
-  return `Tu analyses les données issues de la catégorie de sources "${params.categoryLabel}" (${params.signals.length} signaux, ${params.opportunities.length} opportunités identifiées).
+  return `Tu analyses les données issues de la catégorie de sources "${params.categoryLabel}" (${params.opportunities.length} opportunités identifiées).
 ${userCtx}
-
-SIGNAUX REPRÉSENTATIFS :
-${signalsSample}
 
 OPPORTUNITÉS IDENTIFIÉES DANS CETTE CATÉGORIE :
 ${oppsText}
@@ -494,4 +498,104 @@ ${JSON.stringify(existingOpportunities, null, 2)}
 
 Cette nouvelle opportunité correspond-elle à une opportunité existante (même problème, même marché cible, même solution) ?
 Réponds avec ce JSON : { "match": "id_de_lopportunite_existante" } ou { "match": "new" } si c'est une nouvelle opportunité distincte.`
+}
+
+// ============================================
+// Prompt fusionné : analyse + merge check en un seul appel (Layer 2 OpenAI)
+// ============================================
+
+export function buildFusedAnalysisPrompt(
+  signal: RawSignal,
+  existingOpportunities: Array<{ id: string; title: string }>
+): string {
+  const parts: string[] = [
+    `SOURCE : ${signal.source} (${signal.source_type})`,
+    signal.title ?? '(sans titre)',
+    '',
+    signal.content ?? '',
+  ]
+  if (signal.url) parts.push(`URL: ${signal.url}`)
+
+  const signalBlock = parts.filter((p) => p !== '').join('\n')
+
+  const mergeInstruction =
+    existingOpportunities.length > 0
+      ? `\n\n---\nVÉRIFICATION DE FUSION (obligatoire) :\nOpportunités actives existantes :\n${JSON.stringify(existingOpportunities, null, 2)}\n\nAjoute à la racine de ton JSON le champ "merge_match" :\n- Si is_opportunity est true ET ce signal décrit le même besoin fondamental qu'une opportunité existante (peu importe la source du signal) → "merge_match": "id_existant"\n- Sinon → "merge_match": null`
+      : '\n\n"merge_match": null'
+
+  return signalBlock + mergeInstruction
+}
+
+// ============================================
+// Rapport complet — groupes de 2 sections par appel (Layer 3 OpenAI)
+// ============================================
+
+type FullReportParams = {
+  totalSignals: number
+  totalOpportunities: number
+  opportunities: Array<{ title: string; score_global: number; department: string | null; opportunity_type: string; target_market: string | null; complexity: string | null }>
+  signalsByCategory: Record<string, number>
+  departmentDistribution: Record<string, number>
+  profileSummary?: string | null
+}
+
+export function buildFullReportGroupPrompt(groupIndex: 1 | 2 | 3, params: FullReportParams): string {
+  const userCtx = buildUserContextBlock(params.profileSummary)
+  const oppsText = params.opportunities.slice(0, 30).map(o =>
+    `${o.title} | score:${o.score_global} | dept:${o.department ?? '?'} | type:${o.opportunity_type} | march\u00e9:${o.target_market ?? '?'} | complexit\u00e9:${o.complexity ?? '?'}`
+  ).join('\n')
+  const deptDist = Object.entries(params.departmentDistribution).map(([d, c]) => `${d}: ${c}`).join(', ')
+  const catDist = Object.entries(params.signalsByCategory).map(([c, n]) => `${c}: ${n} signaux`).join(', ')
+
+  const contextBlock = `${userCtx}
+
+DONNÉES DISPONIBLES :
+- ${params.totalSignals} signaux collectés au total
+- ${params.totalOpportunities} opportunités identifiées
+- Distribution par source : ${catDist}
+- Distribution par département : ${deptDist}
+
+TOP OPPORTUNITÉS :
+${oppsText}`
+
+  const groups: Record<1 | 2 | 3, string> = {
+    1: `Génère les sections 1 et 2 du rapport complet. Réponds avec ce JSON (deux cl\u00e9s à la racine) :
+{
+  "section_A": {
+    "title": "Executive Summary",
+    "content": "5 insights majeurs sous forme de liste num\u00e9rot\u00e9e en markdown, chacun en 2-3 phrases. Commence par les plus importants. Termine par une phrase d\u2019orientation g\u00e9n\u00e9rale."
+  },
+  "section_B": {
+    "title": "\u00c9tat du March\u00e9 & Cartographie Sectorielle",
+    "content": "Analyse en markdown : panorama g\u00e9n\u00e9ral (1 paragraphe), puis liste des secteurs les plus actifs avec leur niveau d\u2019opportunit\u00e9, puis identification des secteurs sous-explor\u00e9s."
+  }
+}`,
+    2: `Génère les sections 3 et 4 du rapport complet. Réponds avec ce JSON :
+{
+  "section_A": {
+    "title": "Analyse Emploi & Voix des Utilisateurs",
+    "content": "Analyse en markdown : ce que les offres d\u2019emploi r\u00e9v\u00e8lent sur les t\u00e2ches encore manuelles (1-2 paragraphes), puis ce que les communaut\u00e9s expriment comme frustrations r\u00e9currentes (1-2 paragraphes). Identifier les patterns communs."
+  },
+  "section_B": {
+    "title": "Analyse Concurrentielle",
+    "content": "Analyse en markdown : secteurs satur\u00e9s \u00e0 \u00e9viter (liste avec justification), secteurs ouverts \u00e0 privil\u00e9gier (liste avec justification), et opportunit\u00e9s de diff\u00e9renciation sur le march\u00e9 francophone."
+  }
+}`,
+    3: `Génère les sections 5 et 6 du rapport complet. Réponds avec ce JSON :
+{
+  "section_A": {
+    "title": "Top Opportunit\u00e9s Personnalis\u00e9es",
+    "content": "### 1. [Titre de l\u2019opportunit\u00e9] \u2014 Score: [XX]\\n**Pourquoi c\u2019est pertinent :** [explication]\\n**Angle de positionnement :** [angle concret]\\n**Effort estim\u00e9 :** [effort]\\n\\n### 2. [Titre] \u2014 Score: [XX]\\n... (lister 5 \u00e0 7 opportunit\u00e9s, 'content' doit \u00eatre une string markdown plate, PAS un tableau JSON)"
+  },
+  "section_B": {
+    "title": "Ce qu\u2019il Faudrait Construire en Premier",
+    "content": "Analyse en markdown en 3 parties : 1) Une recommandation concr\u00e8te et argument\u00e9e (l\u2019opportunit\u00e9 \u00e0 prioriser avec justification d\u00e9taill\u00e9e), 2) Les 3-5 signaux faibles qui pourraient devenir forts, 3) Section \u2018Pour toi\u2019 : synth\u00e8se personnalis\u00e9e r\u00e9dig\u00e9e \u00e0 la 2\u00e8me personne, directement actionnable."
+  }
+}`,
+  }
+
+  return `Tu g\u00e9n\u00e8res deux sections (groupe ${groupIndex}/3) d\u2019un rapport d\u2019intelligence march\u00e9 complet.
+${contextBlock}
+
+${groups[groupIndex]}`
 }

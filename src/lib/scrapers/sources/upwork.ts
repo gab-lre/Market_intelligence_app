@@ -5,7 +5,7 @@ const UPWORK_ACTOR_ID = 'flash_mage/upwork'
 
 const DEFAULT_PARAMS = {
   maxResults: 15,
-  keywords: ['saas', 'automation'],
+  keywords: ['saas mvp', 'workflow automation', 'dashboard reporting', 'crm integration', 'api development'],
 }
 
 // Interface de retour de l'acteur flash_mage/upwork
@@ -71,29 +71,36 @@ export const UpworkScraper: Scraper = {
     const maxResults = (params.maxResults as number) ?? DEFAULT_PARAMS.maxResults
     const keywords = (params.keywords as string[]) ?? DEFAULT_PARAMS.keywords
 
-    // L'acteur impose une limite >= 5
-    const safeLimit = Math.max(5, maxResults)
+const signals: RawSignalInput[] = []
+    const seenIds = new Set<string>()
+    const perKeyword = Math.max(5, Math.ceil(maxResults / keywords.length))
 
-    try {
-      const items = await runApifyActor({
-        actorId: UPWORK_ACTOR_ID,
-        input: {
-          limit: safeLimit,
-          query: keywords,
-          sort: 'newest',
-        },
-        memoryMbytes: 512,
-      }) as unknown as UpworkJobItem[]
+    for (const keyword of keywords) {
+      if (signals.length >= maxResults) break
+      try {
+        const items = await runApifyActor({
+          actorId: UPWORK_ACTOR_ID,
+          input: {
+            limit: perKeyword,
+            query: [keyword],
+            sort: 'newest',
+          },
+          memoryMbytes: 512,
+        }) as unknown as UpworkJobItem[]
 
-      // Limiter le résultat strictement à maxResults au cas où on en a ramené plus pour satisfaire la limite apify
-      const limitedItems = items.slice(0, maxResults)
-      const signals = limitedItems.map(mapToSignal)
-      
-      console.log(`[Upwork] ${signals.length} signaux collectés`)
-      return signals
-    } catch (err) {
-      console.error('[Upwork] Erreur lors de l\'exécution Apify —', err instanceof Error ? err.message : String(err))
-      return []
+        for (const item of items) {
+          if (signals.length >= maxResults) break
+          const signal = mapToSignal(item)
+          if (seenIds.has(String(item.id))) continue
+          seenIds.add(String(item.id))
+          signals.push(signal)
+        }
+      } catch (err) {
+        console.error(`[Upwork] Erreur keyword "${keyword}" —`, err instanceof Error ? err.message : String(err))
+      }
     }
+
+    console.log(`[Upwork] ${signals.length} signaux collectés`)
+    return signals
   },
 }
